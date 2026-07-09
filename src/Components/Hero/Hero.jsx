@@ -23,9 +23,9 @@ const Hero = () => {
                 affordability, confidence and timeless style — curated for
                 the modern generation.
             </p>
-            <div className='hero-btn'>
-                <button>Shop Now →</button>
-                <button>Explore Collection</button>
+            <div className='hero-buttons'>
+                <button className='shop-btn'>Shop Now →</button>
+                <button className='explore-btn'>Explore Collection</button>
             </div>
             <div className='stats'>
                 <div className='stat'>
@@ -46,18 +46,20 @@ const Hero = () => {
         <div className='hero-right-side'>
             <div className='background-image'>
                 <img src={hero1} alt="background-image" />
+
+                <div className='freshdrop-card'>
+                    <span>✨</span>
+                    <small>This week</small>
+                    <h4>Fresh Drop</h4>
+                </div>
+                <div className='product-card1 product-card-top'>
+                    <img src={hero2} alt="product-card1" />
+                </div>
+                <div className='product-card2 product-card-bottom'>
+                    <img src={hero3} alt="product-card2" />
+                </div>    
             </div>
-            <div className='freshdrop-card'>
-                <span>✨</span>
-                <small>This week</small>
-                <h4>Fresh Drop</h4>
-            </div>
-            <div className='product-card1'>
-                <img src={hero2} alt="product-card1" />
-            </div>
-            <div className='product-card2'>
-                <img src={hero3} alt="product-card2" />
-            </div>
+            
         </div>
       
     </div>
