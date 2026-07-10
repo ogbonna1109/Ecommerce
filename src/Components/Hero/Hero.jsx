@@ -1,8 +1,8 @@
 import React from 'react'
 import './Hero.css'
-import hero1 from '../../../public/hero/hero1.jpeg'
-import hero2 from '../../../public/hero/hero2.jpeg'
-import hero3 from '../../../public/hero/hero3.jpeg'
+import hero1 from '/hero/hero1.jpeg'
+import hero2 from '/hero/hero2.jpeg'
+import hero3 from '/hero/hero3.jpeg'
 
 
 const Hero = () => {
