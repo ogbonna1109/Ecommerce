@@ -1,0 +1,12 @@
+.categories{
+    width:90%;
+    max-width:1200px;
+    margin:120px auto;
+}
+.categories-header{
+    display: flex;
+    justify-content:space-between;
+    align-items:end;
+    margin-bottom:50px;
+}
+

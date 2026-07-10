@@ -1,4 +1,5 @@
 import React from 'react'
+import { Link } from "react-router-dom";
 import './Categories.css'
 import ladyBagDesign from '/bags/lady-bag-design.webp'
 import jws from '/accessories/jws.webp'
@@ -10,45 +11,64 @@ import sportwear from '/sportswear/sportwear1.webp'
 const Categories = () => {
   return (
     <section>
-      <div className=''>
-        <div className=''>
+      <div className='categories'>
+        <div className='categories-header'>
+        <div className='categories-header-left'>
           <h5>
             <span>SHOP BY CATEGORY</span><br />
             Find Your Style
           </h5>
-          </div>
-          <div className='view-categories'>
+        </div>
+          <div className='categories-header-right'>
             <h5>
-              View All Categories →
+              <Link to='/Categories' >View All Categories →</Link>
             </h5>
           </div>
       </div>
       
       <div>
         <img src={deepBlue} alt="deep blue dress" />
-        <p>Ladies dresses</p>
+        
+        <div className='category-overlay'>
+          <h4>Ladies dresses</h4>
+          <p>12 Items</p>
+        </div>
       </div>
       <div>
         <img src={ladyBagDesign} alt="ladyBagDesign" />
-        <p>Ladies Bags</p>
+        <div className='category-overlay'>
+          <h4>Ladies Bags</h4>
+          <p>19 Items</p>
+        </div>
       </div>
       <div>
         <img src={faceCap} alt="faceCap" />
         <p>Face Cap</p>
+        <div className='category-overlay'>
+          <h4>Face Cap</h4>
+          <p>17 Items</p>
+        </div>
       </div>
       <div>
         <img src={sportwear} alt="sportwear" />
-        <p>Sport Dresses</p>
+        <div className='category-overlay'>
+          <h4>sport Dresses</h4>
+          <p>15 Items</p>
+        </div>
       </div>
       <div>
         <img src={perfume} alt="Perfume" />
-        <p>Perfume</p>
+        <div className='category-overlay'>
+          <h4>Perfume</h4>
+          <p>12 Items</p>
+        </div>
       </div>
       <div>
         <img src={jws} alt="jws" />
         <p>Accessories</p>
       </div>
-    </section>
+    </div>
+  </section>
   )
 }
 
