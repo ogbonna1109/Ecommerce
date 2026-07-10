@@ -4,8 +4,7 @@ import Categories from '../Categories/Categories.jsx'
 
 const Home = () => {
   return (
-    <div>
-      
+    <div className='home-content'>
       <Hero />
       <Categories />
     </div>
