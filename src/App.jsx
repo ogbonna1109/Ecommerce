@@ -12,6 +12,8 @@ import Shop from './Pages/Shop/Shop.jsx'
 import NewArrivals from './Pages/NewArrivals/NewArrivals.jsx'
 import { Routes, Route } from 'react-router-dom'
 
+import ProductDetails from './Pages/ProductDetails/ProductDetails.jsx'
+
 const App = () => {
   return (
     <>
@@ -26,6 +28,8 @@ const App = () => {
         <Route path="/Contact" element={<Contact />} />
         <Route path="/Cart" element={<Cart />} />
         <Route path="/Profile" element={<Profile />} />
+
+        <Route path="/ProductDetails" element={<ProductDetails />} />
 
       </Routes>
 
