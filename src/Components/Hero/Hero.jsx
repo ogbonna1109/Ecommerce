@@ -63,7 +63,7 @@ const Hero = () => {
         const timer = setInterval(() => {
             setDirection(1)
             setActive(prevActive => (prevActive + 1) % slides.length)
-        }, 5000)
+        }, 3000)
         return () => clearInterval(timer)
     }, [paused])
 
