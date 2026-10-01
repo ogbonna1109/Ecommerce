@@ -170,8 +170,8 @@ const ProductDetails = () => {
                                     type="button"
                                     onClick={() => setActiveImage(index)}
                                     className={`aspect-[3/4] overflow-hidden rounded-lg border-2 bg-white transition ${activeImage === index
-                                            ? 'border-[#073b70]'
-                                            : 'border-transparent'
+                                        ? 'border-[#073b70]'
+                                        : 'border-transparent'
                                         }`}
                                 >
                                     <img
@@ -330,8 +330,8 @@ const ProductDetails = () => {
                                         aria-label={`Color ${index + 1}`}
                                         onClick={() => setSelectedColor(index)}
                                         className={`h-8 w-8 rounded-full border-2 p-1 ${selectedColor === index
-                                                ? 'border-[#073b70]'
-                                                : 'border-transparent'
+                                            ? 'border-[#073b70]'
+                                            : 'border-transparent'
                                             }`}
                                     >
                                         <span
@@ -363,8 +363,8 @@ const ProductDetails = () => {
                                         type="button"
                                         onClick={() => setSelectedSize(size)}
                                         className={`min-w-12 rounded-lg border px-4 py-2 text-sm transition ${selectedSize === size
-                                                ? 'border-[#073b70] bg-[#073b70] text-white'
-                                                : 'border-[#073b70]/15 bg-white hover:border-[#073b70]'
+                                            ? 'border-[#073b70] bg-[#073b70] text-white'
+                                            : 'border-[#073b70]/15 bg-white hover:border-[#073b70]'
                                             }`}
                                     >
                                         {size}
@@ -438,8 +438,8 @@ const ProductDetails = () => {
                                     type="button"
                                     onClick={() => setActiveTab(tab)}
                                     className={`whitespace-nowrap px-5 py-5 text-xs font-semibold sm:px-7 ${activeTab === tab
-                                            ? 'border-b-2 border-[#073b70] text-[#073b70]'
-                                            : 'text-[#31506c] hover:text-[#073b70]'
+                                        ? 'border-b-2 border-[#073b70] text-[#073b70]'
+                                        : 'text-[#31506c] hover:text-[#073b70]'
                                         }`}
                                 >
                                     {tab}
