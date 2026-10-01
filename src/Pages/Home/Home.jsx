@@ -1,15 +1,12 @@
 import React from 'react'
 import Hero from '../../Components/Hero/Hero.jsx'
-import Categories from '../Categories/Categories.jsx'
 
 
 const Home = () => {
   return (
-    <div className='home-content'>
+    <main className="min-h-screen bg-[#f8f5ef] flex items-center justify-center">
       <Hero />
-      <Categories />
-
-    </div>
+    </main>
   )
 }
 
