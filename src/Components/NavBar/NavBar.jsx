@@ -22,7 +22,7 @@ const NavBar = () => {
                 <ul className='navbar-links'>
                     <li><NavLink to="/">Home</NavLink></li>
                     <li><NavLink to="/Shop">Shop</NavLink></li>
-                    <li><NavLink to="/New_Arrivals">New Arrivals</NavLink></li>
+                    <li><NavLink to="/NewArrivals">New Arrivals</NavLink></li>
                     <li><NavLink to="/Categories">Categories</NavLink></li>
                     <li><NavLink to="/About">About</NavLink></li>
                     <li><NavLink to="/Contact">Contact</NavLink></li>

@@ -6,9 +6,10 @@ import Categories from './Pages/Categories/Categories.jsx'
 import Home from './Pages/Home/Home.jsx'
 import Contact from './Pages/Contact/Contact.jsx'
 import About from './Pages/About/About.jsx'
-import NewArrivals from './Pages/NewArrivals/NewArrivals.jsx'
+
 import Profile from './Pages/Profile/Profile.jsx'
 import Shop from './Pages/Shop/Shop.jsx'
+import NewArrivals from './Pages/NewArrivals/NewArrivals.jsx'
 import { Routes, Route } from 'react-router-dom'
 
 const App = () => {
@@ -25,7 +26,7 @@ const App = () => {
         <Route path="/Contact" element={<Contact />} />
         <Route path="/Cart" element={<Cart />} />
         <Route path="/Profile" element={<Profile />} />
-        
+
       </Routes>
 
       <Footer />

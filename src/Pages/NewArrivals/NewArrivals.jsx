@@ -2,8 +2,8 @@ import React from 'react'
 
 const NewArrivals = () => {
   return (
-    <div>
-      
+    <div className="new-arrivals">
+      <h2>New Arrivals</h2>
     </div>
   )
 }
