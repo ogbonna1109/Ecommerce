@@ -1,114 +1,19 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-
-const products = [
-  {
-    id: 1,
-    name: 'Blue Midi Dress',
-    price: 32,
-    category: 'Dresses',
-    image: '/hero/hero1.jpeg',
-    badge: 'NEW',
-  },
-  {
-    id: 2,
-    name: 'Classic Handbag',
-    price: 48,
-    category: 'Bags',
-    image: '/hero/hero2.jpeg',
-    badge: 'BEST SELLER',
-  },
-  {
-    id: 3,
-    name: 'Knit Sweater',
-    price: 38,
-    category: 'Tops',
-    image: '/hero/hero3.jpeg',
-    badge: 'NEW',
-  },
-  {
-    id: 4,
-    name: 'Denim Jacket',
-    price: 42,
-    category: 'Outerwear',
-    image: '/hero/hero1.jpeg',
-    badge: 'NEW',
-  },
-  {
-    id: 5,
-    name: 'Leather Bag',
-    price: 55,
-    category: 'Bags',
-    image: '/hero/hero3.jpeg',
-    badge: 'NEW',
-  },
-  {
-    id: 6,
-    name: 'Sneakers',
-    price: 36,
-    category: 'Shoes',
-    image: '/hero/hero2.jpeg',
-    badge: 'NEW',
-  },
-  {
-    id: 7,
-    name: 'Vintage Cap',
-    price: 18,
-    category: 'Accessories',
-    image: '/hero/hero3.jpeg',
-    badge: 'BEST SELLER',
-  },
-  {
-    id: 8,
-    name: 'Striped Shirt',
-    price: 24,
-    category: 'Tops',
-    image: '/hero/hero2.jpeg',
-    badge: 'NEW',
-  },
-  {
-    id: 9,
-    name: 'Straight Leg Jeans',
-    price: 42,
-    category: 'Bottoms',
-    image: '/hero/hero1.jpeg',
-    badge: 'NEW',
-  },
-  {
-    id: 10,
-    name: 'Sunglasses',
-    price: 22,
-    category: 'Accessories',
-    image: '/hero/hero3.jpeg',
-    badge: 'NEW',
-  },
-  {
-    id: 11,
-    name: 'Boots',
-    price: 68,
-    category: 'Shoes',
-    image: '/hero/hero2.jpeg',
-    badge: 'BEST SELLER',
-  },
-  {
-    id: 12,
-    name: 'Jovial Hoodie',
-    price: 45,
-    category: 'Tops',
-    image: '/hero/hero1.jpeg',
-    badge: 'NEW',
-  },
-]
+import { supabase } from '../../lib/supabaseClient'
 
 const categories = [
   'All',
+  'Women',
+  'Men',
+  'Denim',
+  'Dresses',
   'Tops',
   'Bottoms',
-  'Dresses',
-  'Outerwear',
+  'Bags',
   'Shoes',
   'Accessories',
-  'Bags',
+  'Statement Pieces',
 ]
 
 const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
@@ -233,6 +138,10 @@ const StarIcon = () => (
 )
 
 const Shop = () => {
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
   const [category, setCategory] = useState('All')
   const [selectedSizes, setSelectedSizes] = useState([])
   const [priceRange, setPriceRange] = useState('')
@@ -242,11 +151,36 @@ const Shop = () => {
   const [wishlist, setWishlist] = useState([])
   const [mobileFilters, setMobileFilters] = useState(false)
 
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true)
+      setError('')
+
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_available', true)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Supabase products error:', error)
+        setError('Unable to load products.')
+        setProducts([])
+      } else {
+        setProducts(data || [])
+      }
+
+      setLoading(false)
+    }
+
+    fetchProducts()
+  }, [])
+
   const toggleSize = (size) => {
     setSelectedSizes((current) =>
       current.includes(size)
         ? current.filter((item) => item !== size)
-        : [...current, size],
+        : [...current, size]
     )
   }
 
@@ -254,7 +188,7 @@ const Shop = () => {
     setSelectedConditions((current) =>
       current.includes(condition)
         ? current.filter((item) => item !== condition)
-        : [...current, condition],
+        : [...current, condition]
     )
   }
 
@@ -262,7 +196,7 @@ const Shop = () => {
     setWishlist((current) =>
       current.includes(id)
         ? current.filter((item) => item !== id)
-        : [...current, id],
+        : [...current, id]
     )
   }
 
@@ -278,39 +212,55 @@ const Shop = () => {
     let result = [...products]
 
     if (category !== 'All') {
-      result = result.filter((product) => product.category === category)
+      result = result.filter(
+        (product) => product.category === category
+      )
     }
 
     if (priceRange) {
       result = result.filter((product) => {
-        if (priceRange === '$0 – $25') return product.price <= 25
+        const price = Number(product.price)
+
+        if (priceRange === '$0 – $25') {
+          return price <= 25
+        }
+
         if (priceRange === '$26 – $50') {
-          return product.price >= 26 && product.price <= 50
+          return price >= 26 && price <= 50
         }
+
         if (priceRange === '$51 – $75') {
-          return product.price >= 51 && product.price <= 75
+          return price >= 51 && price <= 75
         }
+
         if (priceRange === '$76 – $100') {
-          return product.price >= 76 && product.price <= 100
+          return price >= 76 && price <= 100
         }
-        return product.price >= 101
+
+        return price >= 101
       })
     }
 
     if (sort === 'price-low') {
-      result.sort((a, b) => a.price - b.price)
+      result.sort(
+        (a, b) => Number(a.price) - Number(b.price)
+      )
     }
 
     if (sort === 'price-high') {
-      result.sort((a, b) => b.price - a.price)
+      result.sort(
+        (a, b) => Number(b.price) - Number(a.price)
+      )
     }
 
     if (sort === 'name') {
-      result.sort((a, b) => a.name.localeCompare(b.name))
+      result.sort((a, b) =>
+        a.name.localeCompare(b.name)
+      )
     }
 
     return result
-  }, [category, priceRange, sort])
+  }, [products, category, priceRange, sort])
 
   return (
     <main className="bg-[#f8f5ef] text-[#073b70]">
@@ -357,7 +307,10 @@ const Shop = () => {
       {/* BREADCRUMB */}
       <div className="mx-auto max-w-7xl px-5 py-4 sm:px-8 lg:px-10">
         <div className="flex items-center gap-3 text-xs text-[#31506c]">
-          <NavLink to="/" className="hover:text-[#073b70]">
+          <NavLink
+            to="/"
+            className="hover:text-[#073b70]"
+          >
             Home
           </NavLink>
 
@@ -392,7 +345,7 @@ const Shop = () => {
               </button>
             </div>
 
-            {/* Category */}
+            {/* CATEGORY */}
             <div className="border-b border-[#073b70]/10 py-5">
               <h3 className="text-sm font-bold">
                 Category
@@ -418,7 +371,7 @@ const Shop = () => {
               </div>
             </div>
 
-            {/* Size */}
+            {/* SIZE */}
             <div className="border-b border-[#073b70]/10 py-5">
               <h3 className="text-sm font-bold">
                 Size
@@ -443,7 +396,7 @@ const Shop = () => {
               </div>
             </div>
 
-            {/* Price */}
+            {/* PRICE */}
             <div className="border-b border-[#073b70]/10 py-5">
               <h3 className="text-sm font-bold">
                 Price
@@ -469,7 +422,7 @@ const Shop = () => {
               </div>
             </div>
 
-            {/* Color */}
+            {/* COLOR */}
             <div className="border-b border-[#073b70]/10 py-5">
               <h3 className="text-sm font-bold">
                 Color
@@ -483,7 +436,9 @@ const Shop = () => {
                     aria-label={`Color ${index + 1}`}
                     onClick={() =>
                       setSelectedColor(
-                        selectedColor === color ? null : color,
+                        selectedColor === color
+                          ? null
+                          : color
                       )
                     }
                     className={`h-5 w-5 rounded-full border-2 p-0.5 ${selectedColor === color
@@ -500,7 +455,7 @@ const Shop = () => {
               </div>
             </div>
 
-            {/* Condition */}
+            {/* CONDITION */}
             <div className="py-5">
               <h3 className="text-sm font-bold">
                 Condition
@@ -514,8 +469,12 @@ const Shop = () => {
                   >
                     <input
                       type="checkbox"
-                      checked={selectedConditions.includes(condition)}
-                      onChange={() => toggleCondition(condition)}
+                      checked={selectedConditions.includes(
+                        condition
+                      )}
+                      onChange={() =>
+                        toggleCondition(condition)
+                      }
                       className="accent-[#073b70]"
                     />
 
@@ -537,13 +496,13 @@ const Shop = () => {
           {/* PRODUCTS */}
           <div>
 
-            {/* Product Header */}
+            {/* PRODUCT HEADER */}
             <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
                 <h2 className="font-serif text-3xl font-bold">
                   All Products
                   <sup className="ml-1 text-xs font-normal text-[#31506c]">
-                    (124)
+                    ({filteredProducts.length})
                   </sup>
                 </h2>
 
@@ -555,7 +514,9 @@ const Shop = () => {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setMobileFilters(!mobileFilters)}
+                  onClick={() =>
+                    setMobileFilters(!mobileFilters)
+                  }
                   className="rounded-md border border-[#073b70]/15 bg-white px-4 py-2 text-xs font-semibold lg:hidden"
                 >
                   Filters
@@ -566,13 +527,26 @@ const Shop = () => {
 
                   <select
                     value={sort}
-                    onChange={(event) => setSort(event.target.value)}
+                    onChange={(event) =>
+                      setSort(event.target.value)
+                    }
                     className="bg-transparent font-semibold outline-none"
                   >
-                    <option value="newest">Newest</option>
-                    <option value="price-low">Price: Low</option>
-                    <option value="price-high">Price: High</option>
-                    <option value="name">Name</option>
+                    <option value="newest">
+                      Newest
+                    </option>
+
+                    <option value="price-low">
+                      Price: Low
+                    </option>
+
+                    <option value="price-high">
+                      Price: High
+                    </option>
+
+                    <option value="name">
+                      Name
+                    </option>
                   </select>
 
                   <ChevronDown />
@@ -580,76 +554,155 @@ const Shop = () => {
               </div>
             </div>
 
-            {/* Grid */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {/* LOADING */}
+            {loading && (
+              <div className="rounded-lg border border-[#073b70]/10 bg-white py-16 text-center">
+                <p className="font-serif text-xl italic text-[#073b70]">
+                  Loading our latest finds...
+                </p>
 
-              {filteredProducts.map((product) => (
-                <article
-                  key={product.id}
-                  className="group overflow-hidden rounded-lg border border-[#073b70]/10 bg-white"
-                >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-[#edf0ed]">
+                <p className="mt-2 text-sm text-[#31506c]">
+                  Just a moment.
+                </p>
+              </div>
+            )}
 
-                    <NavLink to="/ProductDetails">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                    </NavLink>
+            {/* ERROR */}
+            {!loading && error && (
+              <div className="rounded-lg border border-red-200 bg-white p-8 text-center">
+                <p className="font-serif text-xl font-bold text-[#073b70]">
+                  Something went wrong.
+                </p>
 
-                    <span className="absolute left-2 top-2 rounded-full bg-[#073b70] px-2.5 py-1 text-[8px] font-bold uppercase text-white">
-                      {product.badge}
-                    </span>
+                <p className="mt-2 text-sm text-red-600">
+                  {error}
+                </p>
 
-                    <button
-                      type="button"
-                      onClick={() => toggleWishlist(product.id)}
-                      className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#073b70] shadow-sm"
-                      aria-label="Add to wishlist"
-                    >
-                      <HeartIcon />
-                    </button>
-                  </div>
-
-                  <NavLink to="/ProductDetails">
-                    <div className="p-3">
-                      <h3 className="text-xs font-medium text-[#073b70] sm:text-sm">
-                        {product.name}
-                      </h3>
-
-                      <p className="mt-1 text-sm font-bold text-[#0064b8]">
-                        ${product.price}
-                      </p>
-                    </div>
-                  </NavLink>
-                </article>
-              ))}
-
-            </div>
-
-            {/* Pagination */}
-            <div className="mt-8 flex items-center justify-center gap-2">
-              <button className="flex h-8 w-8 items-center justify-center rounded-full border border-[#073b70]/10 bg-white">
-                ‹
-              </button>
-
-              {[1, 2, 3, 4, 5].map((page) => (
                 <button
-                  key={page}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-xs ${page === 1
-                    ? 'bg-[#073b70] text-white'
-                    : 'bg-white text-[#073b70]'
-                    }`}
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="mt-5 rounded-full bg-[#073b70] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white"
                 >
-                  {page}
+                  Try Again
                 </button>
-              ))}
+              </div>
+            )}
 
-              <button className="flex h-8 w-8 items-center justify-center rounded-full border border-[#073b70]/10 bg-white">
-                ›
-              </button>
-            </div>
+            {/* EMPTY */}
+            {!loading &&
+              !error &&
+              filteredProducts.length === 0 && (
+                <div className="rounded-lg border border-[#073b70]/10 bg-white py-16 text-center">
+                  <p className="font-serif text-2xl font-bold">
+                    No pieces found.
+                  </p>
+
+                  <p className="mt-2 text-sm text-[#31506c]">
+                    Try changing your filters.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="mt-5 rounded-full bg-[#073b70] px-6 py-3 text-xs font-bold uppercase tracking-wider text-white"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              )}
+
+            {/* GRID */}
+            {!loading &&
+              !error &&
+              filteredProducts.length > 0 && (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {filteredProducts.map((product) => (
+                    <article
+                      key={product.id}
+                      className="group overflow-hidden rounded-lg border border-[#073b70]/10 bg-white"
+                    >
+                      <div className="relative aspect-[4/3] overflow-hidden bg-[#edf0ed]">
+
+                        <NavLink
+                          to={`/ProductDetails?id=${product.id}`}
+                        >
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                          />
+                        </NavLink>
+
+                        <span className="absolute left-2 top-2 rounded-full bg-[#073b70] px-2.5 py-1 text-[8px] font-bold uppercase text-white">
+                          New
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleWishlist(product.id)
+                          }
+                          className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ${wishlist.includes(product.id)
+                            ? 'text-red-500'
+                            : 'text-[#073b70]'
+                            }`}
+                          aria-label="Add to wishlist"
+                        >
+                          <HeartIcon />
+                        </button>
+                      </div>
+
+                      <NavLink
+                        to={`/ProductDetails?id=${product.id}`}
+                      >
+                        <div className="p-3">
+                          <h3 className="text-xs font-medium text-[#073b70] sm:text-sm">
+                            {product.name}
+                          </h3>
+
+                          <p className="mt-1 text-sm font-bold text-[#0064b8]">
+                            ${Number(product.price).toFixed(2)}
+                          </p>
+                        </div>
+                      </NavLink>
+                    </article>
+                  ))}
+                </div>
+              )}
+
+            {/* PAGINATION */}
+            {!loading &&
+              !error &&
+              filteredProducts.length > 0 && (
+                <div className="mt-8 flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[#073b70]/10 bg-white"
+                  >
+                    ‹
+                  </button>
+
+                  {[1, 2, 3, 4, 5].map((page) => (
+                    <button
+                      key={page}
+                      type="button"
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-xs ${page === 1
+                        ? 'bg-[#073b70] text-white'
+                        : 'bg-white text-[#073b70]'
+                        }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[#073b70]/10 bg-white"
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
           </div>
         </div>
       </section>
