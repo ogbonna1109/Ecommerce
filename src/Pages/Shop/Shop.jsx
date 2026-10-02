@@ -164,7 +164,7 @@ const Shop = () => {
 
       if (error) {
         console.error('Supabase products error:', error)
-        setError('Unable to load products.')
+        setError(error.message || 'Unable to load products.')
         setProducts([])
       } else {
         setProducts(data || [])
