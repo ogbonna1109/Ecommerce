@@ -14,6 +14,10 @@ import { Routes, Route } from 'react-router-dom'
 
 import ProductDetails from './Pages/ProductDetails/ProductDetails.jsx'
 
+import AdminProtectedRoute from './Components/Admin/AdminProtectedRoute.jsx'
+import Admin from './Pages/Admin/AdminDashboard/AdminDashboard.jsx'
+import AdminLogin from './Pages/Admin/AdminLogin/AdminLogin.jsx'
+
 const App = () => {
   return (
     <>
@@ -30,6 +34,17 @@ const App = () => {
         <Route path="/Profile" element={<Profile />} />
 
         <Route path="/ProductDetails" element={<ProductDetails />} />
+
+        {/* Admin Routes */}
+        <Route path="/Admin" element={<AdminLogin />} />
+        <Route
+          path="/Admin/Dashboard"
+          element={
+            <AdminProtectedRoute>
+              <Admin />
+            </AdminProtectedRoute>
+          }
+        />
 
       </Routes>
 

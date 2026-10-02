@@ -1,12 +1,11 @@
-import React, { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import React, { useEffect, useMemo, useState } from 'react'
+import { NavLink, useSearchParams } from 'react-router-dom'
+import { supabase } from '../../lib/supabaseClient'
 
-const productImages = [
+const fallbackImages = [
     '/hero/hero1.jpeg',
     '/hero/hero2.jpeg',
     '/hero/hero3.jpeg',
-    '/hero/hero1.jpeg',
-    '/hero/hero2.jpeg',
 ]
 
 const relatedProducts = [
@@ -116,14 +115,155 @@ const ReturnIcon = () => (
 )
 
 const ProductDetails = () => {
+    const [searchParams] = useSearchParams()
+
+    const productId = searchParams.get('id')
+
+    const [product, setProduct] = useState(null)
+    const [sizes, setSizes] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
+
     const [activeImage, setActiveImage] = useState(0)
-    const [selectedSize, setSelectedSize] = useState('XS')
+    const [selectedSize, setSelectedSize] = useState('')
     const [selectedColor, setSelectedColor] = useState(0)
     const [activeTab, setActiveTab] = useState('Description')
     const [wishlist, setWishlist] = useState(false)
 
     const colors = ['#075eb5', '#202020', '#ded8ce']
-    const sizes = ['XS', 'S', 'M', 'L', 'XL']
+
+    useEffect(() => {
+        const fetchProduct = async () => {
+            if (!productId) {
+                setError('No product was selected.')
+                setLoading(false)
+                return
+            }
+
+            setLoading(true)
+            setError('')
+
+            const { data: productData, error: productError } = await supabase
+                .from('products')
+                .select('*')
+                .eq('id', productId)
+                .eq('is_available', true)
+                .single()
+
+            if (productError) {
+                console.error('Supabase product error:', productError)
+                setError(productError.message || 'Unable to load this product.')
+                setProduct(null)
+                setLoading(false)
+                return
+            }
+
+            setProduct(productData)
+
+            const { data: sizeData, error: sizeError } = await supabase
+                .from('product_sizes')
+                .select('*')
+                .eq('product_id', productId)
+                .order('size', { ascending: true })
+
+            if (sizeError) {
+                console.error('Supabase product sizes error:', sizeError)
+                setSizes([])
+            } else {
+                setSizes(sizeData || [])
+            }
+
+            setLoading(false)
+        }
+
+        fetchProduct()
+    }, [productId])
+
+    useEffect(() => {
+        setActiveImage(0)
+        setSelectedSize('')
+        setWishlist(false)
+    }, [productId])
+
+    const productImages = useMemo(() => {
+        if (!product?.image_url) {
+            return fallbackImages
+        }
+
+        return [
+            product.image_url,
+            product.image_url,
+            product.image_url,
+        ]
+    }, [product])
+
+    const availableSizes = useMemo(() => {
+        return sizes.filter((item) => item.stock > 0)
+    }, [sizes])
+
+    const totalStock = useMemo(() => {
+        return sizes.reduce((total, item) => total + Number(item.stock || 0), 0)
+    }, [sizes])
+
+    const isInStock = totalStock > 0 || sizes.length === 0
+
+    const handleAddToCart = () => {
+        if (sizes.length > 0 && !selectedSize) {
+            alert('Please select a size first.')
+            return
+        }
+
+        const cartItem = {
+            id: product.id,
+            name: product.name,
+            price: Number(product.price),
+            image: product.image_url,
+            size: selectedSize || 'One Size',
+            quantity: 1,
+        }
+
+        console.log('Add to cart:', cartItem)
+
+        alert(`${product.name} has been added to your cart.`)
+    }
+
+    if (loading) {
+        return (
+            <main className="min-h-[70vh] bg-[#f8f5ef] px-5 py-20 text-center text-[#073b70]">
+                <div className="mx-auto max-w-xl">
+                    <p className="font-serif text-2xl font-bold">
+                        Loading product...
+                    </p>
+                    <p className="mt-3 text-sm text-[#31506c]">
+                        Please wait while we fetch the product details.
+                    </p>
+                </div>
+            </main>
+        )
+    }
+
+    if (error || !product) {
+        return (
+            <main className="min-h-[70vh] bg-[#f8f5ef] px-5 py-20 text-center text-[#073b70]">
+                <div className="mx-auto max-w-xl rounded-xl border border-red-200 bg-white p-10">
+                    <h1 className="font-serif text-3xl font-bold">
+                        Something went wrong.
+                    </h1>
+
+                    <p className="mt-4 text-red-600">
+                        {error || 'Product not found.'}
+                    </p>
+
+                    <NavLink
+                        to="/Shop"
+                        className="mt-7 inline-flex rounded-lg bg-[#073b70] px-6 py-3 text-sm font-bold text-white hover:bg-[#052d56]"
+                    >
+                        Back to Shop
+                    </NavLink>
+                </div>
+            </main>
+        )
+    }
 
     return (
         <main className="bg-[#f8f5ef] text-[#073b70]">
@@ -134,24 +274,18 @@ const ProductDetails = () => {
                     <NavLink to="/" className="hover:text-[#073b70]">
                         Home
                     </NavLink>
+
                     <span>›</span>
 
                     <NavLink to="/Shop" className="hover:text-[#073b70]">
                         Shop
                     </NavLink>
+
                     <span>›</span>
 
-                    <NavLink to="/Categories" className="hover:text-[#073b70]">
-                        Women
-                    </NavLink>
-                    <span>›</span>
-
-                    <NavLink to="/Categories" className="hover:text-[#073b70]">
-                        Dresses
-                    </NavLink>
-                    <span>›</span>
-
-                    <span className="text-[#073b70]">Blue Midi Dress</span>
+                    <span className="text-[#073b70]">
+                        {product.name}
+                    </span>
                 </div>
             </div>
 
@@ -176,7 +310,7 @@ const ProductDetails = () => {
                                 >
                                     <img
                                         src={image}
-                                        alt={`Blue Midi Dress ${index + 1}`}
+                                        alt={`${product.name} ${index + 1}`}
                                         className="h-full w-full object-cover"
                                     />
                                 </button>
@@ -186,7 +320,9 @@ const ProductDetails = () => {
                                 type="button"
                                 className="py-1 text-xl text-[#073b70]"
                                 onClick={() =>
-                                    setActiveImage((activeImage + 1) % productImages.length)
+                                    setActiveImage(
+                                        (activeImage + 1) % productImages.length,
+                                    )
                                 }
                             >
                                 ↓
@@ -197,7 +333,7 @@ const ProductDetails = () => {
                         <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-[#e8edf0]">
                             <img
                                 src={productImages[activeImage]}
-                                alt="Blue Midi Dress"
+                                alt={product.name}
                                 className="h-full w-full object-cover"
                             />
 
@@ -222,7 +358,9 @@ const ProductDetails = () => {
                                 type="button"
                                 className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-xl shadow-md"
                                 onClick={() =>
-                                    setActiveImage((activeImage + 1) % productImages.length)
+                                    setActiveImage(
+                                        (activeImage + 1) % productImages.length,
+                                    )
                                 }
                             >
                                 ›
@@ -246,18 +384,20 @@ const ProductDetails = () => {
                         </p>
 
                         <h1 className="mt-2 font-serif text-4xl font-bold leading-tight sm:text-5xl">
-                            Blue Midi Dress
+                            {product.name}
                         </h1>
 
                         <div className="mt-3 flex flex-wrap items-center gap-4">
-                            <span className="font-serif text-3xl font-bold">$32</span>
+                            <span className="font-serif text-3xl font-bold">
+                                ${Number(product.price).toFixed(2)}
+                            </span>
 
                             <span className="text-lg text-[#31506c]/60 line-through">
-                                $48
+                                ${(Number(product.price) * 1.5).toFixed(2)}
                             </span>
 
                             <span className="rounded-full bg-[#073b70] px-3 py-1 text-xs font-bold text-white">
-                                33% OFF
+                                New
                             </span>
                         </div>
 
@@ -278,9 +418,20 @@ const ProductDetails = () => {
 
                         {/* Stock */}
                         <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-                            <span className="flex items-center gap-2 text-green-600">
-                                <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                                In Stock
+                            <span
+                                className={`flex items-center gap-2 ${isInStock
+                                    ? 'text-green-600'
+                                    : 'text-red-600'
+                                    }`}
+                            >
+                                <span
+                                    className={`h-2.5 w-2.5 rounded-full ${isInStock
+                                        ? 'bg-green-500'
+                                        : 'bg-red-500'
+                                        }`}
+                                />
+
+                                {isInStock ? 'In Stock' : 'Out of Stock'}
                             </span>
 
                             <span className="text-[#31506c]/50">|</span>
@@ -289,37 +440,46 @@ const ProductDetails = () => {
                         </div>
 
                         <p className="mt-6 max-w-xl text-sm leading-7 text-[#31506c]">
-                            Elegant, stylish and versatile — this blue midi dress is
-                            perfect for casual outings, dinner dates or special occasions.
+                            {product.description ||
+                                'A unique pre-loved fashion find, carefully selected by Jovial Thrift Hub.'}
                         </p>
 
                         {/* Details */}
                         <div className="mt-6 space-y-3 border-b border-[#073b70]/10 pb-6 text-sm">
                             <p>
                                 <strong>⚙</strong>
-                                <span className="ml-3">Material: Polyester blend</span>
+                                <span className="ml-3">
+                                    Category: {product.category}
+                                </span>
                             </p>
 
                             <p>
                                 <strong>♙</strong>
-                                <span className="ml-3">Fit: True to size</span>
+                                <span className="ml-3">
+                                    Fit: Carefully selected pre-loved piece
+                                </span>
                             </p>
 
                             <p>
                                 <strong>♧</strong>
-                                <span className="ml-3">Condition: Very good (pre-loved)</span>
+                                <span className="ml-3">
+                                    Condition: Very good (pre-loved)
+                                </span>
                             </p>
 
                             <p>
                                 <strong>▣</strong>
-                                <span className="ml-3">Brand: Unbranded</span>
+                                <span className="ml-3">
+                                    Brand: Unbranded
+                                </span>
                             </p>
                         </div>
 
                         {/* Color */}
                         <div className="mt-5">
                             <p className="text-sm font-semibold">
-                                Color: <span className="font-normal">Blue</span>
+                                Color:{' '}
+                                <span className="font-normal">Blue</span>
                             </p>
 
                             <div className="mt-3 flex gap-3">
@@ -336,7 +496,9 @@ const ProductDetails = () => {
                                     >
                                         <span
                                             className="block h-full w-full rounded-full border border-black/10"
-                                            style={{ backgroundColor: color }}
+                                            style={{
+                                                backgroundColor: color,
+                                            }}
                                         />
                                     </button>
                                 ))}
@@ -346,7 +508,9 @@ const ProductDetails = () => {
                         {/* Sizes */}
                         <div className="mt-6">
                             <div className="flex items-center justify-between">
-                                <p className="text-sm font-semibold">Size:</p>
+                                <p className="text-sm font-semibold">
+                                    Size:
+                                </p>
 
                                 <button
                                     type="button"
@@ -357,19 +521,38 @@ const ProductDetails = () => {
                             </div>
 
                             <div className="mt-3 flex flex-wrap gap-3">
-                                {sizes.map((size) => (
+                                {sizes.length === 0 ? (
                                     <button
-                                        key={size}
                                         type="button"
-                                        onClick={() => setSelectedSize(size)}
-                                        className={`min-w-12 rounded-lg border px-4 py-2 text-sm transition ${selectedSize === size
+                                        onClick={() => setSelectedSize('One Size')}
+                                        className={`min-w-12 rounded-lg border px-4 py-2 text-sm transition ${selectedSize === 'One Size'
                                             ? 'border-[#073b70] bg-[#073b70] text-white'
                                             : 'border-[#073b70]/15 bg-white hover:border-[#073b70]'
                                             }`}
                                     >
-                                        {size}
+                                        One Size
                                     </button>
-                                ))}
+                                ) : availableSizes.length === 0 ? (
+                                    <p className="text-sm text-red-600">
+                                        All sizes are currently out of stock.
+                                    </p>
+                                ) : (
+                                    availableSizes.map((size) => (
+                                        <button
+                                            key={size.id}
+                                            type="button"
+                                            onClick={() =>
+                                                setSelectedSize(size.size)
+                                            }
+                                            className={`min-w-12 rounded-lg border px-4 py-2 text-sm transition ${selectedSize === size.size
+                                                ? 'border-[#073b70] bg-[#073b70] text-white'
+                                                : 'border-[#073b70]/15 bg-white hover:border-[#073b70]'
+                                                }`}
+                                        >
+                                            {size.size}
+                                        </button>
+                                    ))
+                                )}
                             </div>
                         </div>
 
@@ -377,10 +560,12 @@ const ProductDetails = () => {
                         <div className="mt-7 grid gap-3">
                             <button
                                 type="button"
-                                className="flex items-center justify-center gap-3 rounded-lg bg-[#073b70] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#052d56]"
+                                onClick={handleAddToCart}
+                                disabled={!isInStock}
+                                className="flex items-center justify-center gap-3 rounded-lg bg-[#073b70] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#052d56] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <CartIcon />
-                                Add to Cart
+                                {isInStock ? 'Add to Cart' : 'Out of Stock'}
                             </button>
 
                             <button
@@ -389,7 +574,9 @@ const ProductDetails = () => {
                                 className="flex items-center justify-center gap-3 rounded-lg border border-[#073b70] bg-white px-6 py-4 text-sm font-semibold transition hover:bg-[#edf7ff]"
                             >
                                 <HeartIcon />
-                                {wishlist ? 'Added to Wishlist' : 'Add to Wishlist'}
+                                {wishlist
+                                    ? 'Added to Wishlist'
+                                    : 'Add to Wishlist'}
                             </button>
                         </div>
 
@@ -397,6 +584,7 @@ const ProductDetails = () => {
                         <div className="mt-7 grid grid-cols-3 border-t border-[#073b70]/10 pt-6">
                             <div className="flex flex-col items-center gap-2 border-r border-[#073b70]/10 text-center">
                                 <TruckIcon />
+
                                 <p className="text-[10px] leading-4">
                                     Free Shipping
                                     <br />
@@ -406,6 +594,7 @@ const ProductDetails = () => {
 
                             <div className="flex flex-col items-center gap-2 border-r border-[#073b70]/10 text-center">
                                 <ShieldIcon />
+
                                 <p className="text-[10px] leading-4">
                                     Secure
                                     <br />
@@ -415,6 +604,7 @@ const ProductDetails = () => {
 
                             <div className="flex flex-col items-center gap-2 text-center">
                                 <ReturnIcon />
+
                                 <p className="text-[10px] leading-4">
                                     Easy
                                     <br />
@@ -431,21 +621,25 @@ const ProductDetails = () => {
                 <div className="overflow-hidden rounded-xl border border-[#073b70]/10 bg-white">
 
                     <div className="flex overflow-x-auto border-b border-[#073b70]/10">
-                        {['Description', 'Size & Fit', 'Shipping', 'Returns', 'Reviews (124)'].map(
-                            (tab) => (
-                                <button
-                                    key={tab}
-                                    type="button"
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`whitespace-nowrap px-5 py-5 text-xs font-semibold sm:px-7 ${activeTab === tab
-                                        ? 'border-b-2 border-[#073b70] text-[#073b70]'
-                                        : 'text-[#31506c] hover:text-[#073b70]'
-                                        }`}
-                                >
-                                    {tab}
-                                </button>
-                            ),
-                        )}
+                        {[
+                            'Description',
+                            'Size & Fit',
+                            'Shipping',
+                            'Returns',
+                            'Reviews (124)',
+                        ].map((tab) => (
+                            <button
+                                key={tab}
+                                type="button"
+                                onClick={() => setActiveTab(tab)}
+                                className={`whitespace-nowrap px-5 py-5 text-xs font-semibold sm:px-7 ${activeTab === tab
+                                    ? 'border-b-2 border-[#073b70] text-[#073b70]'
+                                    : 'text-[#31506c] hover:text-[#073b70]'
+                                    }`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
                     </div>
 
                     <div className="grid gap-10 px-6 py-8 sm:px-8 lg:grid-cols-[1fr_360px] lg:px-10">
@@ -457,11 +651,8 @@ const ProductDetails = () => {
                             {activeTab === 'Description' && (
                                 <>
                                     <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
-                                        This stunning blue midi dress features a modern
-                                        one-shoulder design, with a flattering cutout at the waist
-                                        and a stylish front slit. The soft, lightweight fabric
-                                        makes it comfortable to wear while keeping you looking
-                                        effortlessly chic.
+                                        {product.description ||
+                                            'This carefully selected pre-loved piece is part of the Jovial Thrift Hub collection.'}
                                     </p>
 
                                     <h3 className="mt-7 font-serif text-lg font-bold">
@@ -469,41 +660,43 @@ const ProductDetails = () => {
                                     </h3>
 
                                     <ul className="mt-3 space-y-2 text-sm text-[#31506c]">
-                                        <li>✓ One-shoulder design</li>
-                                        <li>✓ Waist cutout detail</li>
-                                        <li>✓ Front slit</li>
-                                        <li>✓ Midi length</li>
-                                        <li>✓ Lightweight, breathable fabric</li>
+                                        <li>✓ Carefully curated pre-loved piece</li>
+                                        <li>✓ Unique thrift find</li>
+                                        <li>✓ Quality checked</li>
+                                        <li>✓ Limited availability</li>
+                                        <li>✓ Sustainable fashion choice</li>
                                     </ul>
                                 </>
                             )}
 
                             {activeTab === 'Size & Fit' && (
                                 <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
-                                    This piece fits true to size. For the best fit, check our
-                                    size guide and compare your measurements before ordering.
+                                    Available sizes are shown above based on
+                                    current stock. Because these are curated
+                                    thrift pieces, availability may be limited.
                                 </p>
                             )}
 
                             {activeTab === 'Shipping' && (
                                 <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
-                                    Orders are carefully prepared and shipped within 1–2
-                                    business days. Delivery times may vary depending on your
-                                    location.
+                                    Orders are carefully prepared and shipped
+                                    within 1–2 business days. Delivery times
+                                    may vary depending on your location.
                                 </p>
                             )}
 
                             {activeTab === 'Returns' && (
                                 <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
-                                    Eligible items can be returned according to our returns
-                                    policy. Items should remain in their original condition.
+                                    Eligible items can be returned according to
+                                    our returns policy. Items should remain in
+                                    their original condition.
                                 </p>
                             )}
 
                             {activeTab === 'Reviews (124)' && (
                                 <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
-                                    Customers have rated this piece 4.8 out of 5 based on 124
-                                    reviews.
+                                    Customers have rated this piece 4.8 out of
+                                    5 based on 124 reviews.
                                 </p>
                             )}
                         </div>
@@ -511,6 +704,7 @@ const ProductDetails = () => {
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
                             <div className="rounded-xl bg-[#edf7ff] p-5">
                                 <p className="text-2xl">♧</p>
+
                                 <h3 className="mt-2 font-serif font-bold">
                                     Pre-Loved
                                     <br />
@@ -520,6 +714,7 @@ const ProductDetails = () => {
 
                             <div className="rounded-xl bg-[#edf7ff] p-5">
                                 <p className="text-2xl">♻</p>
+
                                 <h3 className="mt-2 font-serif font-bold">
                                     Sustainable
                                     <br />
@@ -529,6 +724,7 @@ const ProductDetails = () => {
 
                             <div className="rounded-xl bg-[#edf7ff] p-5">
                                 <p className="text-2xl">♡</p>
+
                                 <h3 className="mt-2 font-serif font-bold">
                                     Unique
                                     <br />
@@ -556,18 +752,21 @@ const ProductDetails = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-                    {relatedProducts.map((product) => (
-                        <article key={product.name} className="group">
+                    {relatedProducts.map((relatedProduct) => (
+                        <article
+                            key={relatedProduct.name}
+                            className="group"
+                        >
                             <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-[#073b70]/10 bg-white">
                                 <img
-                                    src={product.image}
-                                    alt={product.name}
+                                    src={relatedProduct.image}
+                                    alt={relatedProduct.name}
                                     className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                                 />
 
                                 <button
                                     type="button"
-                                    aria-label={`Add ${product.name} to wishlist`}
+                                    aria-label={`Add ${relatedProduct.name} to wishlist`}
                                     className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#0064b8] shadow-sm"
                                 >
                                     ♡
@@ -575,11 +774,11 @@ const ProductDetails = () => {
                             </div>
 
                             <h3 className="mt-3 text-sm font-medium">
-                                {product.name}
+                                {relatedProduct.name}
                             </h3>
 
                             <p className="mt-1 font-semibold text-[#0064b8]">
-                                {product.price}
+                                {relatedProduct.price}
                             </p>
                         </article>
                     ))}
