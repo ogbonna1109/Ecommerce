@@ -102,6 +102,9 @@ const Checkout = () => {
     setErrorMessage('')
 
     try {
+      // Check if customer is authenticated
+      const { data: { user } } = await supabase.auth.getUser()
+
       // Unique reference & order number
       const orderRef = `JTH-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`
       const paymentRef = `PAY-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`
@@ -119,6 +122,7 @@ const Checkout = () => {
         status: 'pending',
         payment_reference: paymentRef,
         payment_channel: 'Paystack / Online Card',
+        user_id: user?.id || null,
       }
 
       // Try inserting into Supabase orders table
@@ -213,6 +217,16 @@ const Checkout = () => {
       if (updateError) {
         console.error('Error updating order status:', updateError)
         throw new Error('Payment verification succeeded, but updating order status failed.')
+      }
+
+      // Save order reference in jovial_recent_orders for guest/customer order history
+      try {
+        const recent = JSON.parse(localStorage.getItem('jovial_recent_orders') || '[]')
+        if (!recent.includes(currentOrder.order_number)) {
+          localStorage.setItem('jovial_recent_orders', JSON.stringify([currentOrder.order_number, ...recent]))
+        }
+      } catch (e) {
+        console.error('Failed saving recent order ref:', e)
       }
 
       // ONLY CLEAR CART AFTER SUCCESSFUL PAYMENT VERIFICATION
