@@ -39,13 +39,37 @@ const App = () => {
         <Route path="/Checkout" element={<Checkout />} />
         <Route path="/OrderConfirmation" element={<OrderConfirmation />} />
 
-        {/* Admin Routes */}
+        {/* Protected Admin Routes */}
         <Route path="/Admin" element={<AdminLogin />} />
         <Route
           path="/Admin/Dashboard"
           element={
             <AdminProtectedRoute>
-              <Admin />
+              <Admin initialTab="overview" />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/Admin/Products"
+          element={
+            <AdminProtectedRoute>
+              <Admin initialTab="products" />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/Admin/Orders"
+          element={
+            <AdminProtectedRoute>
+              <Admin initialTab="orders" />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/Admin/Settings"
+          element={
+            <AdminProtectedRoute>
+              <Admin initialTab="settings" />
             </AdminProtectedRoute>
           }
         />

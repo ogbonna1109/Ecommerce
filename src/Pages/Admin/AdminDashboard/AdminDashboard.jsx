@@ -116,9 +116,27 @@ const ORDER_STATUS_OPTIONS = [
   'Cancelled',
 ]
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ initialTab = 'overview' }) => {
   // Navigation Tab State: 'overview' | 'products' | 'orders' | 'settings'
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(initialTab)
+  const [adminEmail, setAdminEmail] = useState('')
+
+  useEffect(() => {
+    const getAdminIdentity = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.email) {
+        setAdminEmail(user.email)
+      }
+    }
+    getAdminIdentity()
+  }, [])
+
+  // Sync activeTab when initialTab prop changes
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab)
+    }
+  }, [initialTab])
 
   // Products State
   const [products, setProducts] = useState([])
@@ -862,12 +880,24 @@ const AdminDashboard = () => {
               Refresh
             </button>
 
+            {adminEmail && (
+              <div className="hidden sm:flex flex-col items-end border-l border-[#073b70]/10 pl-3">
+                <span className="text-[11px] font-bold text-[#073b70] truncate max-w-[160px]">
+                  {adminEmail}
+                </span>
+                <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full mt-0.5">
+                  Admin User
+                </span>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleSignOut}
-              className="rounded-xl border border-[#073b70]/20 bg-white px-4 py-2.5 text-xs font-semibold text-[#073b70] hover:bg-[#edf7ff]"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700 hover:bg-red-100 transition"
+              title="Sign out of Admin Dashboard"
             >
-              Sign Out
+              Logout
             </button>
           </div>
         </div>
