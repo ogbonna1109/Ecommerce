@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import logo from '../../assets/jovial_thrift_full.png'
+import { supabase } from '../../lib/supabaseClient'
 
 const SearchIcon = () => (
   <svg
@@ -109,6 +110,7 @@ const navLinks = [
 const NavBar = () => {
   const [menuOpen, setMenuOpen] = useState(false)
   const [cartCount, setCartCount] = useState(0)
+  const [announcementText, setAnnouncementText] = useState('Free Shipping on Orders Over $50')
 
   useEffect(() => {
     const updateCount = () => {
@@ -137,6 +139,23 @@ const NavBar = () => {
     updateCount()
     window.addEventListener('storage', updateCount)
     window.addEventListener('cartUpdated', updateCount)
+
+    const fetchAnnouncement = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('store_settings')
+          .select('announcement')
+          .limit(1)
+          .maybeSingle()
+        if (!error && data?.announcement) {
+          setAnnouncementText(data.announcement)
+        }
+      } catch (err) {
+        console.warn('NavBar announcement fetch notice:', err)
+      }
+    }
+    fetchAnnouncement()
+
     return () => {
       window.removeEventListener('storage', updateCount)
       window.removeEventListener('cartUpdated', updateCount)
@@ -151,7 +170,7 @@ const NavBar = () => {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
 
           <p className="tracking-wide">
-            Free Shipping on Orders Over $50
+            {announcementText}
           </p>
 
           <div className="hidden items-center gap-4 sm:flex">

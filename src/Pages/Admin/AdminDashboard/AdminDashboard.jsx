@@ -70,6 +70,13 @@ const OrdersIcon = () => (
   </svg>
 )
 
+const SettingsIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+)
+
 const TrendingUpIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
@@ -110,7 +117,7 @@ const ORDER_STATUS_OPTIONS = [
 ]
 
 const AdminDashboard = () => {
-  // Navigation Tab State: 'overview' | 'products' | 'orders'
+  // Navigation Tab State: 'overview' | 'products' | 'orders' | 'settings'
   const [activeTab, setActiveTab] = useState('overview')
 
   // Products State
@@ -126,6 +133,25 @@ const AdminDashboard = () => {
   const [ordersError, setOrdersError] = useState('')
   const [orderSearchQuery, setOrderSearchQuery] = useState('')
   const [orderStatusFilter, setOrderStatusFilter] = useState('All')
+
+  // Store Settings State
+  const [storeSettings, setStoreSettings] = useState({
+    store_name: 'Jovial Thrift Hub',
+    tagline: 'Curated Vintage & Pre-Loved Fashion',
+    whatsapp_number: '+2348000000000',
+    email: 'contact@jovialthrifthub.com',
+    delivery_info: 'Standard nationwide delivery within 2-5 business days.',
+    delivery_fee: '15.00',
+    minimum_order_amount: '0.00',
+    is_store_open: true,
+    announcement: 'Free Shipping on Orders Over $50',
+    instagram_url: 'https://instagram.com',
+    facebook_url: 'https://facebook.com',
+    twitter_url: 'https://x.com',
+  })
+  const [settingsId, setSettingsId] = useState(null)
+  const [loadingSettings, setLoadingSettings] = useState(true)
+  const [savingSettings, setSavingSettings] = useState(false)
 
   // Selected Order Modal State
   const [selectedOrder, setSelectedOrder] = useState(null)
@@ -225,9 +251,107 @@ const AdminDashboard = () => {
     }
   }
 
+  // Fetch Store Settings
+  const fetchStoreSettings = async () => {
+    setLoadingSettings(true)
+    try {
+      const { data, error } = await supabase
+        .from('store_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle()
+
+      if (error) {
+        console.warn('Store settings query notice:', error)
+      } else if (data) {
+        setSettingsId(data.id)
+        setStoreSettings({
+          store_name: data.store_name || 'Jovial Thrift Hub',
+          tagline: data.tagline || 'Curated Vintage & Pre-Loved Fashion',
+          whatsapp_number: data.whatsapp_number || '+2348000000000',
+          email: data.email || 'contact@jovialthrifthub.com',
+          delivery_info: data.delivery_info || 'Standard nationwide delivery within 2-5 business days.',
+          delivery_fee: data.delivery_fee !== undefined && data.delivery_fee !== null ? String(data.delivery_fee) : '15.00',
+          minimum_order_amount: data.minimum_order_amount !== undefined && data.minimum_order_amount !== null ? String(data.minimum_order_amount) : '0.00',
+          is_store_open: data.is_store_open !== false,
+          announcement: data.announcement || 'Free Shipping on Orders Over $50',
+          instagram_url: data.instagram_url || '',
+          facebook_url: data.facebook_url || '',
+          twitter_url: data.twitter_url || '',
+        })
+      }
+    } catch (err) {
+      console.error('Fetch settings exception:', err)
+    } finally {
+      setLoadingSettings(false)
+    }
+  }
+
+  // Save Store Settings
+  const handleSaveSettings = async (e) => {
+    e.preventDefault()
+    setSavingSettings(true)
+    setFeedback({ type: '', message: '' })
+
+    try {
+      const payload = {
+        store_name: storeSettings.store_name.trim(),
+        tagline: storeSettings.tagline.trim(),
+        whatsapp_number: storeSettings.whatsapp_number.trim(),
+        email: storeSettings.email.trim(),
+        delivery_info: storeSettings.delivery_info.trim(),
+        delivery_fee: Number(storeSettings.delivery_fee) || 0,
+        minimum_order_amount: Number(storeSettings.minimum_order_amount) || 0,
+        is_store_open: Boolean(storeSettings.is_store_open),
+        announcement: storeSettings.announcement.trim(),
+        instagram_url: storeSettings.instagram_url.trim(),
+        facebook_url: storeSettings.facebook_url.trim(),
+        twitter_url: storeSettings.twitter_url.trim(),
+        updated_at: new Date().toISOString(),
+      }
+
+      let saveErr = null
+      if (settingsId) {
+        const { error } = await supabase
+          .from('store_settings')
+          .update(payload)
+          .eq('id', settingsId)
+        saveErr = error
+      } else {
+        const { data: inserted, error } = await supabase
+          .from('store_settings')
+          .insert([payload])
+          .select()
+          .single()
+        if (inserted) setSettingsId(inserted.id)
+        saveErr = error
+      }
+
+      if (saveErr) {
+        if (saveErr.code === 'PGRST205' || saveErr.message?.includes('does not exist')) {
+          throw new Error('Database setup required: Please run the provided SQL script to create the "store_settings" table in Supabase SQL Editor.')
+        }
+        throw saveErr
+      }
+
+      setFeedback({
+        type: 'success',
+        message: 'Store settings saved successfully! Checkout & store availability updated.',
+      })
+    } catch (err) {
+      console.error('Save settings error:', err)
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Failed to save store settings.',
+      })
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
   // Refresh All Dashboard Data
   const refreshAllData = async () => {
-    await Promise.all([fetchProductsData(), fetchOrdersData()])
+    await Promise.all([fetchProductsData(), fetchOrdersData(), fetchStoreSettings()])
   }
 
   // Load all data on mount
@@ -269,29 +393,25 @@ const AdminDashboard = () => {
     return matchesSearch && matchesStatus
   })
 
-  // --- STATISTICAL COMPUTATIONS (Real Supabase Data Only) ---
+  // --- STATISTICAL COMPUTATIONS ---
   const totalProducts = products.length
   const availableProductsCount = products.filter((p) => p.is_available).length
   const totalOrdersCount = orders.length
 
-  // Paid orders definition: paid_at is not null or status === 'paid'
   const paidOrdersList = orders.filter(
     (o) => Boolean(o.paid_at) || (o.status || '').toLowerCase() === 'paid'
   )
   const paidOrdersCount = paidOrdersList.length
 
-  // Pending orders definition: status === 'pending'
   const pendingOrdersCount = orders.filter(
     (o) => (o.status || '').toLowerCase() === 'pending'
   ).length
 
-  // Revenue: Sum of total_amount from paid orders only
   const totalRevenue = paidOrdersList.reduce(
     (sum, o) => sum + (Number(o.total_amount) || 0),
     0
   )
 
-  // Revenue breakdown by month
   const revenueByMonth = paidOrdersList.reduce((acc, order) => {
     const dateObj = new Date(order.paid_at || order.created_at)
     if (isNaN(dateObj.getTime())) return acc
@@ -304,7 +424,6 @@ const AdminDashboard = () => {
     return new Date(b).getTime() - new Date(a).getTime()
   })
 
-  // Low stock inventory items (stock <= 3 threshold)
   const lowStockItems = []
   products.forEach((product) => {
     const sizes = productSizesMap[product.id] || []
@@ -323,8 +442,6 @@ const AdminDashboard = () => {
     })
   })
   const lowStockCount = lowStockItems.length
-
-  // Recent Orders (Top 6 latest orders)
   const recentOrders = orders.slice(0, 6)
 
   // Product CRUD Handlers
@@ -557,7 +674,6 @@ const AdminDashboard = () => {
     }
   }
 
-  // Update Order Status (NO double stock deduction)
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     setUpdatingOrderStatus(true)
     setFeedback({ type: '', message: '' })
@@ -659,7 +775,7 @@ const AdminDashboard = () => {
     )
   }
 
-  const isLoadingOverall = loadingProducts || loadingOrders
+  const isLoadingOverall = loadingProducts || loadingOrders || loadingSettings
 
   return (
     <main className="min-h-screen bg-[#f8f5ef] text-[#073b70] px-5 py-8 sm:px-8 lg:px-10">
@@ -672,10 +788,10 @@ const AdminDashboard = () => {
               Jovial Thrift Hub Management
             </p>
             <h1 className="mt-1 font-serif text-4xl font-bold text-[#073b70]">
-              Admin Overview
+              Admin Dashboard
             </h1>
             <p className="mt-1 text-xs text-[#31506c]">
-              Store performance overview, catalog statistics, revenue metrics, and orders.
+              Store performance overview, catalog statistics, customer orders, and store settings.
             </p>
           </div>
 
@@ -719,6 +835,19 @@ const AdminDashboard = () => {
               >
                 <OrdersIcon />
                 Orders ({totalOrdersCount})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition ${
+                  activeTab === 'settings'
+                    ? 'bg-[#073b70] text-white shadow-xs'
+                    : 'text-[#073b70] hover:bg-[#edf7ff]'
+                }`}
+              >
+                <SettingsIcon />
+                Settings
               </button>
             </div>
 
@@ -766,7 +895,7 @@ const AdminDashboard = () => {
         {/* LOADING INDICATOR */}
         {isLoadingOverall && (
           <div className="mt-6 rounded-xl border border-[#073b70]/10 bg-white p-4 text-center text-xs text-[#31506c] animate-pulse">
-            Fetching latest database metrics from Supabase...
+            Loading database metrics & settings from Supabase...
           </div>
         )}
 
@@ -776,64 +905,52 @@ const AdminDashboard = () => {
             
             {/* 7 DASHBOARD STATISTIC CARDS */}
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-              
-              {/* 1. Total Products */}
               <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Total Products</p>
                 <p className="mt-2 text-2xl font-bold text-[#073b70]">{totalProducts}</p>
                 <p className="mt-1 text-[10px] text-[#31506c]">Catalog items</p>
               </div>
 
-              {/* 2. Available Products */}
               <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Available</p>
                 <p className="mt-2 text-2xl font-bold text-green-600">{availableProductsCount}</p>
                 <p className="mt-1 text-[10px] text-[#31506c]">Active for checkout</p>
               </div>
 
-              {/* 3. Total Orders */}
               <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Total Orders</p>
                 <p className="mt-2 text-2xl font-bold text-[#073b70]">{totalOrdersCount}</p>
                 <p className="mt-1 text-[10px] text-[#31506c]">Customer checkouts</p>
               </div>
 
-              {/* 4. Paid Orders */}
               <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Paid Orders</p>
                 <p className="mt-2 text-2xl font-bold text-emerald-600">{paidOrdersCount}</p>
                 <p className="mt-1 text-[10px] text-[#31506c]">Verified payments</p>
               </div>
 
-              {/* 5. Pending Orders */}
               <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Pending Orders</p>
                 <p className="mt-2 text-2xl font-bold text-amber-600">{pendingOrdersCount}</p>
                 <p className="mt-1 text-[10px] text-[#31506c]">Needs processing</p>
               </div>
 
-              {/* 6. Low Stock Products */}
               <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Low Stock</p>
                 <p className="mt-2 text-2xl font-bold text-red-600">{lowStockCount}</p>
                 <p className="mt-1 text-[10px] text-[#31506c]">Sizes stock ≤ 3</p>
               </div>
 
-              {/* 7. Total Revenue */}
               <div className="rounded-2xl border border-[#073b70]/10 bg-[#073b70] p-5 text-white shadow-md flex flex-col justify-between col-span-full xl:col-span-1">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#edf7ff]">Total Revenue</p>
                 <p className="mt-2 text-2xl font-bold text-white">${totalRevenue.toFixed(2)}</p>
                 <p className="mt-1 text-[10px] text-[#edf7ff]">From paid orders</p>
               </div>
-
             </div>
 
             {/* MAIN DASHBOARD CONTENT GRID */}
             <div className="grid gap-8 lg:grid-cols-3">
-
-              {/* LEFT / CENTER COLUMN (2 COLS): RECENT ORDERS & REVENUE */}
               <div className="lg:col-span-2 space-y-8">
-                
                 {/* REVENUE BY MONTH */}
                 <div className="rounded-2xl border border-[#073b70]/10 bg-white p-6 shadow-xs">
                   <div className="flex items-center justify-between border-b border-[#073b70]/10 pb-4">
@@ -974,10 +1091,9 @@ const AdminDashboard = () => {
                     </div>
                   )}
                 </div>
-
               </div>
 
-              {/* RIGHT COLUMN (1 COL): LOW STOCK ALERTS */}
+              {/* RIGHT COLUMN: LOW STOCK ALERTS */}
               <div className="space-y-8">
                 <div className="rounded-2xl border border-[#073b70]/10 bg-white p-6 shadow-xs h-fit">
                   <div className="flex items-center justify-between border-b border-[#073b70]/10 pb-4">
@@ -1048,26 +1164,17 @@ const AdminDashboard = () => {
                           </div>
                         </div>
                       ))}
-
-                      {lowStockItems.length > 8 && (
-                        <p className="text-center text-[11px] font-semibold text-[#31506c] pt-2">
-                          + {lowStockItems.length - 8} more sizes require restocking.
-                        </p>
-                      )}
                     </div>
                   )}
                 </div>
               </div>
-
             </div>
-
           </div>
         )}
 
         {/* TAB 2: PRODUCTS MANAGEMENT TAB */}
         {activeTab === 'products' && (
           <div className="mt-8 rounded-2xl border border-[#073b70]/10 bg-white p-6 sm:p-8 shadow-xs">
-            {/* SEARCH & FILTERS */}
             <div className="flex flex-col justify-between gap-4 border-b border-[#073b70]/10 pb-6 sm:flex-row sm:items-center">
               <div>
                 <h2 className="font-serif text-2xl font-bold">Catalog Management</h2>
@@ -1119,7 +1226,6 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* TABLE OF PRODUCTS */}
             {loadingProducts ? (
               <div className="py-16 text-center text-[#31506c]">
                 <p className="font-serif text-lg italic">Loading product catalog...</p>
@@ -1253,7 +1359,6 @@ const AdminDashboard = () => {
         {/* TAB 3: CUSTOMER ORDERS MANAGEMENT TAB */}
         {activeTab === 'orders' && (
           <div className="mt-8 rounded-2xl border border-[#073b70]/10 bg-white p-6 sm:p-8 shadow-xs">
-            {/* SEARCH & STATUS FILTER BAR */}
             <div className="flex flex-col justify-between gap-4 border-b border-[#073b70]/10 pb-6 sm:flex-row sm:items-center">
               <div>
                 <h2 className="font-serif text-2xl font-bold">Orders Management</h2>
@@ -1286,14 +1391,12 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* ERROR BANNER */}
             {ordersError && (
               <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700">
                 {ordersError}
               </div>
             )}
 
-            {/* ORDERS TABLE */}
             {loadingOrders ? (
               <div className="py-16 text-center text-[#31506c]">
                 <p className="font-serif text-lg italic">Loading customer orders...</p>
@@ -1391,13 +1494,240 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {/* TAB 4: STORE SETTINGS MANAGEMENT TAB */}
+        {activeTab === 'settings' && (
+          <div className="mt-8 rounded-2xl border border-[#073b70]/10 bg-white p-6 sm:p-8 shadow-xs">
+            <div className="border-b border-[#073b70]/10 pb-6">
+              <h2 className="font-serif text-2xl font-bold">Store Settings</h2>
+              <p className="mt-1 text-xs text-[#31506c]">
+                Manage store branding, contact information, delivery fees, checkout rules, and store availability.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveSettings} className="mt-6 space-y-8">
+              
+              {/* SECTION 1: STORE AVAILABILITY & ANNOUNCEMENT */}
+              <div className="rounded-xl border border-[#073b70]/10 bg-[#edf7ff] p-5 space-y-4">
+                <h3 className="font-serif text-base font-bold text-[#073b70] flex items-center justify-between">
+                  <span>Store Status & Global Announcement</span>
+                  <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase ${storeSettings.is_store_open ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {storeSettings.is_store_open ? '● Store Open' : '● Store Closed'}
+                  </span>
+                </h3>
+
+                <div className="grid gap-4 sm:grid-cols-2 items-center">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="is_store_open_toggle"
+                      checked={storeSettings.is_store_open}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, is_store_open: e.target.checked })}
+                      className="h-5 w-5 accent-[#073b70] cursor-pointer"
+                    />
+                    <label htmlFor="is_store_open_toggle" className="text-xs font-bold text-[#073b70] cursor-pointer">
+                      Store Open for Customer Orders
+                      <span className="block text-[11px] font-normal text-[#31506c]">
+                        Uncheck to temporarily pause checkout. Customers can still browse products.
+                      </span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">
+                      Top Bar Announcement Text
+                    </label>
+                    <input
+                      type="text"
+                      value={storeSettings.announcement}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, announcement: e.target.value })}
+                      placeholder="e.g. Free shipping on orders over $50!"
+                      className="w-full rounded-lg border border-[#073b70]/20 bg-white px-4 py-2 text-xs outline-none focus:border-[#073b70]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: STORE BRANDING */}
+              <div className="space-y-4">
+                <h3 className="font-serif text-lg font-bold text-[#073b70] border-b border-[#073b70]/10 pb-2">
+                  Store Information & Branding
+                </h3>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">Store Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={storeSettings.store_name}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, store_name: e.target.value })}
+                      className="w-full rounded-lg border border-[#073b70]/20 bg-[#f8f5ef] px-4 py-2.5 text-xs outline-none focus:border-[#073b70]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">Tagline</label>
+                    <input
+                      type="text"
+                      value={storeSettings.tagline}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, tagline: e.target.value })}
+                      className="w-full rounded-lg border border-[#073b70]/20 bg-[#f8f5ef] px-4 py-2.5 text-xs outline-none focus:border-[#073b70]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: CONTACT INFORMATION */}
+              <div className="space-y-4">
+                <h3 className="font-serif text-lg font-bold text-[#073b70] border-b border-[#073b70]/10 pb-2">
+                  Contact Information
+                </h3>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">WhatsApp / Contact Phone *</label>
+                    <input
+                      type="text"
+                      required
+                      value={storeSettings.whatsapp_number}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, whatsapp_number: e.target.value })}
+                      placeholder="+2348000000000"
+                      className="w-full rounded-lg border border-[#073b70]/20 bg-[#f8f5ef] px-4 py-2.5 text-xs outline-none focus:border-[#073b70]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">Store Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      value={storeSettings.email}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, email: e.target.value })}
+                      placeholder="contact@jovialthrifthub.com"
+                      className="w-full rounded-lg border border-[#073b70]/20 bg-[#f8f5ef] px-4 py-2.5 text-xs outline-none focus:border-[#073b70]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: DELIVERY & CHECKOUT RULES */}
+              <div className="space-y-4">
+                <h3 className="font-serif text-lg font-bold text-[#073b70] border-b border-[#073b70]/10 pb-2">
+                  Delivery & Checkout Rules
+                </h3>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">
+                      Default Delivery Fee ($) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      value={storeSettings.delivery_fee}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, delivery_fee: e.target.value })}
+                      className="w-full rounded-lg border border-[#073b70]/20 bg-[#f8f5ef] px-4 py-2.5 text-xs font-bold outline-none focus:border-[#073b70]"
+                    />
+                    <p className="text-[10px] text-[#31506c] mt-1">
+                      This fee is automatically applied during customer checkout.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">
+                      Minimum Order Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={storeSettings.minimum_order_amount}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, minimum_order_amount: e.target.value })}
+                      className="w-full rounded-lg border border-[#073b70]/20 bg-[#f8f5ef] px-4 py-2.5 text-xs font-bold outline-none focus:border-[#073b70]"
+                    />
+                    <p className="text-[10px] text-[#31506c] mt-1">
+                      Set to 0 to disable minimum order restriction.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">Delivery Information Text</label>
+                  <textarea
+                    rows="3"
+                    value={storeSettings.delivery_info}
+                    onChange={(e) => setStoreSettings({ ...storeSettings, delivery_info: e.target.value })}
+                    placeholder="Delivery timeline and instructions..."
+                    className="w-full rounded-lg border border-[#073b70]/20 bg-[#f8f5ef] px-4 py-2.5 text-xs outline-none focus:border-[#073b70] resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* SECTION 5: SOCIAL LINKS */}
+              <div className="space-y-4">
+                <h3 className="font-serif text-lg font-bold text-[#073b70] border-b border-[#073b70]/10 pb-2">
+                  Social Media Handles
+                </h3>
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">Instagram URL</label>
+                    <input
+                      type="url"
+                      value={storeSettings.instagram_url}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, instagram_url: e.target.value })}
+                      placeholder="https://instagram.com/..."
+                      className="w-full rounded-lg border border-[#073b70]/20 bg-[#f8f5ef] px-4 py-2.5 text-xs outline-none focus:border-[#073b70]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">Facebook URL</label>
+                    <input
+                      type="url"
+                      value={storeSettings.facebook_url}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, facebook_url: e.target.value })}
+                      placeholder="https://facebook.com/..."
+                      className="w-full rounded-lg border border-[#073b70]/20 bg-[#f8f5ef] px-4 py-2.5 text-xs outline-none focus:border-[#073b70]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-[#073b70] mb-1">Twitter / X URL</label>
+                    <input
+                      type="url"
+                      value={storeSettings.twitter_url}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, twitter_url: e.target.value })}
+                      placeholder="https://x.com/..."
+                      className="w-full rounded-lg border border-[#073b70]/20 bg-[#f8f5ef] px-4 py-2.5 text-xs outline-none focus:border-[#073b70]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SAVE BUTTON */}
+              <div className="pt-4 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="rounded-xl bg-[#073b70] px-8 py-3 text-xs font-bold text-white transition hover:bg-[#052d56] disabled:opacity-60 shadow-md"
+                >
+                  {savingSettings ? 'Saving Settings...' : 'Save Settings'}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        )}
+
       </div>
 
       {/* ORDER DETAILS & STATUS MANAGEMENT MODAL */}
       {showOrderModal && selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[90vh] flex flex-col">
-            {/* MODAL HEADER */}
             <div className="flex items-center justify-between border-b border-[#073b70]/10 bg-[#073b70] px-6 py-4 text-white shrink-0">
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-[#edf7ff]">Order Details</p>
@@ -1414,10 +1744,7 @@ const AdminDashboard = () => {
               </button>
             </div>
 
-            {/* MODAL BODY */}
             <div className="p-6 overflow-y-auto space-y-6">
-
-              {/* TOP STATUS BAR & UPDATE CONTROL */}
               <div className="rounded-xl border border-[#073b70]/15 bg-[#edf7ff] p-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Payment Verification</p>
@@ -1457,9 +1784,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* CUSTOMER & ORDER SUMMARY GRID */}
               <div className="grid gap-4 sm:grid-cols-2">
-                {/* CUSTOMER INFO */}
                 <div className="rounded-xl border border-[#073b70]/10 bg-[#f8f5ef] p-4 space-y-2">
                   <h4 className="font-serif text-sm font-bold text-[#073b70] border-b border-[#073b70]/10 pb-1">
                     Customer Details
@@ -1486,7 +1811,6 @@ const AdminDashboard = () => {
                   </p>
                 </div>
 
-                {/* ORDER METADATA */}
                 <div className="rounded-xl border border-[#073b70]/10 bg-[#f8f5ef] p-4 space-y-2">
                   <h4 className="font-serif text-sm font-bold text-[#073b70] border-b border-[#073b70]/10 pb-1">
                     Order Details
@@ -1520,7 +1844,6 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* PRODUCTS LIST */}
               <div>
                 <h4 className="font-serif text-base font-bold text-[#073b70] mb-3">
                   Purchased Items
@@ -1587,7 +1910,6 @@ const AdminDashboard = () => {
                 )}
               </div>
 
-              {/* TOTALS SUMMARY BREAKDOWN */}
               <div className="flex justify-end">
                 <div className="w-full max-w-xs rounded-xl border border-[#073b70]/10 bg-[#f8f5ef] p-4 space-y-2 text-xs">
                   <div className="flex justify-between text-[#31506c]">
@@ -1604,10 +1926,8 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               </div>
-
             </div>
 
-            {/* MODAL FOOTER */}
             <div className="border-t border-[#073b70]/10 bg-white p-4 flex justify-end shrink-0">
               <button
                 type="button"
@@ -1856,7 +2176,6 @@ const AdminDashboard = () => {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* CURRENT SIZES & STOCK CONTROL */}
               <div>
                 <h4 className="font-serif text-base font-bold text-[#073b70] border-b border-[#073b70]/10 pb-2">
                   Configured Product Sizes
@@ -1901,7 +2220,6 @@ const AdminDashboard = () => {
                 )}
               </div>
 
-              {/* ADD NEW SIZE FORM */}
               <form onSubmit={handleAddSizeOption} className="rounded-xl border border-[#073b70]/10 bg-[#edf7ff] p-4">
                 <h5 className="font-bold text-xs uppercase tracking-wider text-[#073b70] mb-3">Add Size Option</h5>
                 <div className="grid grid-cols-3 gap-3">

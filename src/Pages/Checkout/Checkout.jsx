@@ -29,6 +29,9 @@ const Checkout = () => {
   const [cartItems, setCartItems] = useState([])
   const [loadingCart, setLoadingCart] = useState(true)
 
+  // Store Settings state
+  const [storeSettings, setStoreSettings] = useState(null)
+
   // Customer shipping details
   const [formData, setFormData] = useState({
     fullName: '',
@@ -45,7 +48,7 @@ const Checkout = () => {
   const [currentOrder, setCurrentOrder] = useState(null)
   const [paymentStep, setPaymentStep] = useState('select') // 'select', 'processing', 'verifying', 'failed'
 
-  // Load cart on mount
+  // Load cart and store settings on mount
   useEffect(() => {
     try {
       const rawCart = localStorage.getItem('jovial_cart')
@@ -65,14 +68,37 @@ const Checkout = () => {
     } finally {
       setLoadingCart(false)
     }
+
+    const fetchSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('store_settings')
+          .select('*')
+          .limit(1)
+          .maybeSingle()
+        if (!error && data) {
+          setStoreSettings(data)
+        }
+      } catch (err) {
+        console.warn('Store settings fetch notice in Checkout:', err)
+      }
+    }
+    fetchSettings()
   }, [])
 
-  // Calculations
+  // Dynamic store calculations from settings
+  const isStoreOpen = storeSettings?.is_store_open !== false
+  const configuredDeliveryFee =
+    storeSettings?.delivery_fee !== undefined && storeSettings?.delivery_fee !== null
+      ? Number(storeSettings.delivery_fee)
+      : 15.0
+  const minOrderAmount = Number(storeSettings?.minimum_order_amount || 0)
+
   const subtotal = cartItems.reduce(
     (sum, item) => sum + Number(item.price) * (Number(item.quantity) || 1),
     0
   )
-  const shippingFee = subtotal >= 50 || subtotal === 0 ? 0 : 8
+  const shippingFee = subtotal === 0 ? 0 : configuredDeliveryFee
   const totalAmount = subtotal + shippingFee
   const totalItemCount = cartItems.reduce(
     (sum, item) => sum + (Number(item.quantity) || 1),
@@ -87,6 +113,20 @@ const Checkout = () => {
   // Create order in Supabase
   const handleInitiateOrder = async (e) => {
     e.preventDefault()
+
+    if (!isStoreOpen) {
+      setErrorMessage('The store is currently closed for new orders by the store owner.')
+      return
+    }
+
+    if (minOrderAmount > 0 && subtotal < minOrderAmount) {
+      setErrorMessage(
+        `Minimum order amount is $${minOrderAmount.toFixed(
+          2
+        )}. Please add more items to your cart before checking out.`
+      )
+      return
+    }
 
     if (cartItems.length === 0) {
       setErrorMessage('Your cart is empty. Please add items to your cart before checking out.')
@@ -427,14 +467,32 @@ const Checkout = () => {
                 />
               </div>
 
+              {!isStoreOpen && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700">
+                  ⚠️ Ordering is temporarily closed by the store owner. You can browse products, but checkout is currently disabled.
+                </div>
+              )}
+
+              {minOrderAmount > 0 && subtotal < minOrderAmount && isStoreOpen && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-800">
+                  ℹ️ Minimum order amount is ${minOrderAmount.toFixed(2)}. Please add items worth at least ${(minOrderAmount - subtotal).toFixed(2)} more to continue.
+                </div>
+              )}
+
               <div className="pt-4">
                 <button
                   type="submit"
-                  disabled={isProcessing}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#073b70] py-4 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#052d56] disabled:opacity-60"
+                  disabled={isProcessing || !isStoreOpen || (minOrderAmount > 0 && subtotal < minOrderAmount)}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#073b70] py-4 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#052d56] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <LockIcon />
-                  {isProcessing ? 'Creating Order...' : `Proceed to Pay $${totalAmount.toFixed(2)}`}
+                  {!isStoreOpen
+                    ? 'Store Closed'
+                    : minOrderAmount > 0 && subtotal < minOrderAmount
+                    ? `Min Order: $${minOrderAmount.toFixed(2)}`
+                    : isProcessing
+                    ? 'Creating Order...'
+                    : `Proceed to Pay $${totalAmount.toFixed(2)}`}
                 </button>
               </div>
             </form>
