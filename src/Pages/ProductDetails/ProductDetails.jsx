@@ -442,18 +442,23 @@ const ProductDetails = () => {
                             {sizes.length === 0 ? (
                                 <span className="flex items-center gap-2 font-medium text-green-600">
                                     <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                                    Available (One Size)
+                                    In Stock (One Size)
                                 </span>
                             ) : selectedSize ? (
-                                selectedSizeStock > 0 ? (
+                                selectedSizeStock > 3 ? (
                                     <span className="flex items-center gap-2 font-medium text-green-600">
                                         <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
                                         {selectedSizeStock} left in stock ({selectedSize})
                                     </span>
+                                ) : selectedSizeStock > 0 ? (
+                                    <span className="flex items-center gap-2 font-bold text-amber-600">
+                                        <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+                                        Low Stock — Only {selectedSizeStock} left! ({selectedSize})
+                                    </span>
                                 ) : (
                                     <span className="flex items-center gap-2 font-medium text-red-500">
                                         <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                                        Out of stock ({selectedSize})
+                                        Sold Out ({selectedSize})
                                     </span>
                                 )
                             ) : (

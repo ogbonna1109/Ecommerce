@@ -188,7 +188,7 @@ const Checkout = () => {
 
     try {
       // Simulate/verify payment reference against server
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      await new Promise((resolve) => setTimeout(resolve, 1200))
 
       if (!success) {
         // Payment failed or was declined
@@ -204,19 +204,62 @@ const Checkout = () => {
         return
       }
 
-      // Strict verification step: Update status to 'paid' in Supabase
-      const paidTimestamp = new Date().toISOString()
-      const { error: updateError } = await supabase
+      // Check idempotency: Fetch current status of order
+      const { data: latestOrder } = await supabase
         .from('orders')
-        .update({
-          status: 'paid',
-          paid_at: paidTimestamp,
-        })
+        .select('status')
         .eq('id', currentOrder.id)
+        .single()
 
-      if (updateError) {
-        console.error('Error updating order status:', updateError)
-        throw new Error('Payment verification succeeded, but updating order status failed.')
+      if (latestOrder && latestOrder.status === 'paid') {
+        // Order already paid & stock already deducted - idempotent bypass
+        console.log('Order is already marked as paid. Bypassing stock deduction.')
+      } else {
+        // ATOMIC STOCK DEDUCTION via Supabase RPC function
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('deduct_order_stock', {
+          p_order_id: currentOrder.id,
+        })
+
+        if (rpcError) {
+          console.warn('Supabase RPC deduct_order_stock error or not installed yet:', rpcError)
+
+          // Fallback direct stock deduction if RPC is not yet created in Supabase
+          if (rpcError.code === 'PGRST202' || rpcError.message?.includes('function') || rpcError.message?.includes('not found')) {
+            // Direct update fallback
+            const paidTimestamp = new Date().toISOString()
+            await supabase
+              .from('orders')
+              .update({
+                status: 'paid',
+                paid_at: paidTimestamp,
+              })
+              .eq('id', currentOrder.id)
+
+            // Attempt direct stock reduction for sizes
+            for (const item of cartItems) {
+              if (item.size && item.size !== 'One Size') {
+                const { data: sizeRow } = await supabase
+                  .from('product_sizes')
+                  .select('stock')
+                  .eq('product_id', item.id)
+                  .eq('size', item.size)
+                  .single()
+
+                if (sizeRow) {
+                  const newStock = Math.max(0, sizeRow.stock - (Number(item.quantity) || 1))
+                  await supabase
+                    .from('product_sizes')
+                    .update({ stock: newStock })
+                    .eq('product_id', item.id)
+                    .eq('size', item.size)
+                }
+              }
+            }
+          } else {
+            // High severity error (e.g. Insufficient Stock error raised by SQL transaction)
+            throw new Error(rpcError.message || 'Stock deduction failed. Not enough inventory to fulfill order.')
+          }
+        }
       }
 
       // Save order reference in jovial_recent_orders for guest/customer order history
@@ -229,7 +272,7 @@ const Checkout = () => {
         console.error('Failed saving recent order ref:', e)
       }
 
-      // ONLY CLEAR CART AFTER SUCCESSFUL PAYMENT VERIFICATION
+      // ONLY CLEAR CART AFTER SUCCESSFUL PAYMENT VERIFICATION AND STOCK DEDUCTION
       localStorage.removeItem('jovial_cart')
       window.dispatchEvent(new Event('cartUpdated'))
 
