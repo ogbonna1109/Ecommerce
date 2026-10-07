@@ -37,7 +37,7 @@ const AdminLogin = () => {
             return
         }
 
-        window.location.href = '/Admin'
+        window.location.href = '/Admin/Dashboard'
     }
 
     return (
