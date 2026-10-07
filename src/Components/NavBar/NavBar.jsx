@@ -113,10 +113,23 @@ const NavBar = () => {
   useEffect(() => {
     const updateCount = () => {
       try {
-        const cart = JSON.parse(localStorage.getItem('jovial_cart') || '[]')
-        const total = cart.reduce((sum, item) => sum + (item.quantity || 1), 0)
-        setCartCount(total)
-      } catch {
+        const rawData = localStorage.getItem('jovial_cart')
+        if (!rawData) {
+          setCartCount(0)
+          return
+        }
+        const cart = JSON.parse(rawData)
+        if (Array.isArray(cart)) {
+          const total = cart.reduce(
+            (sum, item) => sum + (Number(item.quantity) || 1),
+            0,
+          )
+          setCartCount(total)
+        } else {
+          setCartCount(0)
+        }
+      } catch (err) {
+        console.error('Failed to parse jovial_cart:', err)
         setCartCount(0)
       }
     }
@@ -320,8 +333,13 @@ const NavBar = () => {
                   to="/Cart"
                   onClick={() => setMenuOpen(false)}
                   aria-label="Cart"
+                  className="relative"
                 >
                   <CartIcon />
+
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#073b70] px-1 text-[9px] font-bold text-white">
+                    {cartCount}
+                  </span>
                 </NavLink>
 
               </div>
