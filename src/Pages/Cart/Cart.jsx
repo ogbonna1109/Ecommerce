@@ -1,35 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-
-const initialItems = [
-  {
-    id: 1,
-    name: 'Blue Midi Dress',
-    price: 32,
-    size: 'M',
-    color: 'Blue',
-    quantity: 1,
-    image: '/hero/hero1.jpeg',
-  },
-  {
-    id: 2,
-    name: 'Classic Handbag',
-    price: 48,
-    size: 'One Size',
-    color: 'Black',
-    quantity: 1,
-    image: '/hero/hero2.jpeg',
-  },
-  {
-    id: 3,
-    name: 'Denim Jacket',
-    price: 42,
-    size: 'M',
-    color: 'Blue',
-    quantity: 1,
-    image: '/hero/hero3.jpeg',
-  },
-]
 
 const TrashIcon = () => (
   <svg
@@ -98,29 +68,57 @@ const TruckIcon = () => (
 )
 
 const Cart = () => {
-  const [items, setItems] = useState(initialItems)
+  const [items, setItems] = useState([])
   const [coupon, setCoupon] = useState('')
 
-  const updateQuantity = (id, change) => {
-    setItems((current) =>
-      current
-        .map((item) =>
-          item.id === id
-            ? {
-              ...item,
-              quantity: Math.max(1, item.quantity + change),
-            }
-            : item,
-        ),
-    )
+  useEffect(() => {
+    const loadCart = () => {
+      try {
+        const cartData = JSON.parse(localStorage.getItem('jovial_cart') || '[]')
+        setItems(cartData)
+      } catch (err) {
+        console.error('Failed to load cart:', err)
+        setItems([])
+      }
+    }
+    loadCart()
+
+    window.addEventListener('storage', loadCart)
+    window.addEventListener('cartUpdated', loadCart)
+    return () => {
+      window.removeEventListener('storage', loadCart)
+      window.removeEventListener('cartUpdated', loadCart)
+    }
+  }, [])
+
+  const saveCart = (newItems) => {
+    setItems(newItems)
+    localStorage.setItem('jovial_cart', JSON.stringify(newItems))
+    window.dispatchEvent(new Event('cartUpdated'))
   }
 
-  const removeItem = (id) => {
-    setItems((current) => current.filter((item) => item.id !== id))
+  const updateQuantity = (id, size, change) => {
+    const updated = items.map((item) => {
+      if (item.id === id && item.size === size) {
+        return {
+          ...item,
+          quantity: Math.max(1, item.quantity + change),
+        }
+      }
+      return item
+    })
+    saveCart(updated)
+  }
+
+  const removeItem = (id, size) => {
+    const updated = items.filter(
+      (item) => !(item.id === id && item.size === size),
+    )
+    saveCart(updated)
   }
 
   const subtotal = items.reduce(
-    (total, item) => total + item.price * item.quantity,
+    (total, item) => total + Number(item.price) * item.quantity,
     0,
   )
 
@@ -218,17 +216,19 @@ const Cart = () => {
 
                 {items.map((item) => (
                   <div
-                    key={item.id}
+                    key={`${item.id}-${item.size}`}
                     className="flex gap-4 p-5 sm:p-7"
                   >
 
                     {/* IMAGE */}
                     <div className="h-28 w-24 shrink-0 overflow-hidden rounded-lg bg-[#edf7ff] sm:h-32 sm:w-28">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="h-full w-full object-cover"
-                      />
+                      <NavLink to={`/ProductDetails?id=${item.id}`}>
+                        <img
+                          src={item.image || '/hero/hero1.jpeg'}
+                          alt={item.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </NavLink>
                     </div>
 
                     {/* DETAILS */}
@@ -237,21 +237,30 @@ const Cart = () => {
                       <div className="flex justify-between gap-4">
 
                         <div>
-                          <p className="font-serif text-lg font-bold">
+                          <NavLink
+                            to={`/ProductDetails?id=${item.id}`}
+                            className="font-serif text-lg font-bold hover:underline"
+                          >
                             {item.name}
-                          </p>
+                          </NavLink>
 
                           <p className="mt-1 text-xs text-[#31506c]">
-                            Size: {item.size}
+                            Size: <span className="font-semibold text-[#073b70]">{item.size}</span>
                           </p>
 
+                          {item.color && (
+                            <p className="mt-1 text-xs text-[#31506c]">
+                              Color: {item.color}
+                            </p>
+                          )}
+
                           <p className="mt-1 text-xs text-[#31506c]">
-                            Color: {item.color}
+                            Unit Price: ${Number(item.price).toFixed(2)}
                           </p>
                         </div>
 
                         <p className="font-bold text-[#0064b8]">
-                          ${item.price * item.quantity}
+                          ${(Number(item.price) * item.quantity).toFixed(2)}
                         </p>
 
                       </div>
@@ -263,7 +272,7 @@ const Cart = () => {
 
                           <button
                             type="button"
-                            onClick={() => updateQuantity(item.id, -1)}
+                            onClick={() => updateQuantity(item.id, item.size, -1)}
                             className="flex h-8 w-8 items-center justify-center hover:bg-[#edf7ff]"
                             aria-label="Decrease quantity"
                           >
@@ -276,7 +285,7 @@ const Cart = () => {
 
                           <button
                             type="button"
-                            onClick={() => updateQuantity(item.id, 1)}
+                            onClick={() => updateQuantity(item.id, item.size, 1)}
                             className="flex h-8 w-8 items-center justify-center hover:bg-[#edf7ff]"
                             aria-label="Increase quantity"
                           >
@@ -287,7 +296,7 @@ const Cart = () => {
 
                         <button
                           type="button"
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => removeItem(item.id, item.size)}
                           className="flex items-center gap-2 text-xs text-[#31506c] transition hover:text-red-600"
                         >
                           <TrashIcon />
@@ -318,7 +327,7 @@ const Cart = () => {
                   </span>
 
                   <span className="font-semibold">
-                    ${subtotal}
+                    ${subtotal.toFixed(2)}
                   </span>
                 </div>
 
@@ -328,7 +337,7 @@ const Cart = () => {
                   </span>
 
                   <span className="font-semibold">
-                    {shipping === 0 ? 'Free' : `$${shipping}`}
+                    {shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}
                   </span>
                 </div>
 
@@ -338,7 +347,7 @@ const Cart = () => {
                   </span>
 
                   <span className="font-semibold">
-                    $0
+                    $0.00
                   </span>
                 </div>
 
@@ -353,7 +362,7 @@ const Cart = () => {
                   <p className="text-xs font-bold">
                     {subtotal >= 50
                       ? 'You qualify for free shipping!'
-                      : `Add $${50 - subtotal} more for free shipping.`}
+                      : `Add $${(50 - subtotal).toFixed(2)} more for free shipping.`}
                   </p>
 
                   <p className="mt-1 text-[10px] text-[#31506c]">
@@ -403,7 +412,7 @@ const Cart = () => {
                 </span>
 
                 <span className="font-serif text-2xl font-bold text-[#0064b8]">
-                  ${total}
+                  ${total.toFixed(2)}
                 </span>
 
               </div>

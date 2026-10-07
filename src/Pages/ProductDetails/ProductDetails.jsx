@@ -126,6 +126,7 @@ const ProductDetails = () => {
 
             setLoading(true)
             setError('')
+            setSelectedSize('')
 
             const { data, error: productError } = await supabase
                 .from('products')
@@ -136,7 +137,7 @@ const ProductDetails = () => {
 
             if (productError || !data) {
                 console.error('Product details error:', productError)
-                setError('This product could not be found.')
+                setError('This product could not be found or is no longer available.')
                 setLoading(false)
                 return
             }
@@ -153,18 +154,16 @@ const ProductDetails = () => {
                 console.error('Product sizes error:', sizeError)
                 setSizes([])
             } else {
-                const availableSizes = (sizeData || []).filter(
-                    (item) => item.stock > 0,
-                )
+                const fetchedSizes = sizeData || []
+                setSizes(fetchedSizes)
 
-                setSizes(availableSizes)
-
-                if (availableSizes.length > 0) {
-                    setSelectedSize(availableSizes[0].size)
+                const firstAvailable = fetchedSizes.find((item) => item.stock > 0)
+                if (firstAvailable) {
+                    setSelectedSize(firstAvailable.size)
                 }
             }
 
-            const { data: relatedData } = await supabase
+            let { data: relatedData } = await supabase
                 .from('products')
                 .select('*')
                 .eq('is_available', true)
@@ -173,9 +172,20 @@ const ProductDetails = () => {
                 .order('created_at', { ascending: false })
                 .limit(6)
 
-            setRelatedProducts(relatedData || [])
+            if (!relatedData || relatedData.length === 0) {
+                const { data: fallbackData } = await supabase
+                    .from('products')
+                    .select('*')
+                    .eq('is_available', true)
+                    .neq('id', productId)
+                    .order('created_at', { ascending: false })
+                    .limit(6)
+                relatedData = fallbackData || []
+            }
 
+            setRelatedProducts(relatedData || [])
             setLoading(false)
+            window.scrollTo(0, 0)
         }
 
         fetchProduct()
@@ -184,9 +194,19 @@ const ProductDetails = () => {
     const addToCart = () => {
         if (!product) return
 
+        const effectiveSize = sizes.length > 0 ? selectedSize : 'One Size'
+
         if (sizes.length > 0 && !selectedSize) {
             alert('Please select a size.')
             return
+        }
+
+        if (sizes.length > 0) {
+            const selectedSizeObj = sizes.find((item) => item.size === selectedSize)
+            if (!selectedSizeObj || selectedSizeObj.stock <= 0) {
+                alert('The selected size is out of stock.')
+                return
+            }
         }
 
         const existingCart = JSON.parse(
@@ -198,7 +218,7 @@ const ProductDetails = () => {
             name: product.name,
             price: Number(product.price),
             image: product.image_url,
-            size: selectedSize || 'One Size',
+            size: effectiveSize,
             quantity: 1,
         }
 
@@ -212,7 +232,6 @@ const ProductDetails = () => {
 
         if (existingIndex !== -1) {
             updatedCart = [...existingCart]
-
             updatedCart[existingIndex] = {
                 ...updatedCart[existingIndex],
                 quantity: updatedCart[existingIndex].quantity + 1,
@@ -222,6 +241,7 @@ const ProductDetails = () => {
         }
 
         localStorage.setItem('jovial_cart', JSON.stringify(updatedCart))
+        window.dispatchEvent(new Event('cartUpdated'))
 
         setAddedToCart(true)
 
@@ -234,7 +254,7 @@ const ProductDetails = () => {
         return (
             <main className="min-h-screen bg-[#f8f5ef] px-5 py-20 text-center text-[#073b70]">
                 <p className="text-lg font-semibold">
-                    Loading product...
+                    Loading product details...
                 </p>
             </main>
         )
@@ -269,8 +289,8 @@ const ProductDetails = () => {
         image,
     ]
 
-    const selectedSizeStock =
-        sizes.find((item) => item.size === selectedSize)?.stock || 0
+    const selectedSizeObj = sizes.find((item) => item.size === selectedSize)
+    const selectedSizeStock = selectedSizeObj ? selectedSizeObj.stock : 0
 
     return (
         <main className="bg-[#f8f5ef] text-[#073b70]">
@@ -420,18 +440,25 @@ const ProductDetails = () => {
                         {/* Stock */}
                         <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
                             {sizes.length === 0 ? (
-                                <span className="flex items-center gap-2 text-green-600">
+                                <span className="flex items-center gap-2 font-medium text-green-600">
                                     <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                                    Available
+                                    Available (One Size)
                                 </span>
-                            ) : selectedSizeStock > 0 ? (
-                                <span className="flex items-center gap-2 text-green-600">
-                                    <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                                    {selectedSizeStock} left in stock
-                                </span>
+                            ) : selectedSize ? (
+                                selectedSizeStock > 0 ? (
+                                    <span className="flex items-center gap-2 font-medium text-green-600">
+                                        <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                                        {selectedSizeStock} left in stock ({selectedSize})
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-2 font-medium text-red-500">
+                                        <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                                        Out of stock ({selectedSize})
+                                    </span>
+                                )
                             ) : (
-                                <span className="text-red-500">
-                                    Out of stock
+                                <span className="italic text-[#31506c]">
+                                    Please select a size to view stock
                                 </span>
                             )}
 
@@ -478,7 +505,7 @@ const ProductDetails = () => {
                             <div className="mt-6">
                                 <div className="flex items-center justify-between">
                                     <p className="text-sm font-semibold">
-                                        Size:
+                                        Size: {selectedSize && <span className="font-normal text-[#31506c]">({selectedSize})</span>}
                                     </p>
 
                                     <button
@@ -490,21 +517,30 @@ const ProductDetails = () => {
                                 </div>
 
                                 <div className="mt-3 flex flex-wrap gap-3">
-                                    {sizes.map((item) => (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            onClick={() =>
-                                                setSelectedSize(item.size)
-                                            }
-                                            className={`min-w-12 rounded-lg border px-4 py-2 text-sm transition ${selectedSize === item.size
-                                                    ? 'border-[#073b70] bg-[#073b70] text-white'
-                                                    : 'border-[#073b70]/15 bg-white hover:border-[#073b70]'
+                                    {sizes.map((item) => {
+                                        const isOutOfStock = item.stock <= 0
+                                        const isSelected = selectedSize === item.size
+
+                                        return (
+                                            <button
+                                                key={item.id || item.size}
+                                                type="button"
+                                                disabled={isOutOfStock}
+                                                onClick={() =>
+                                                    !isOutOfStock && setSelectedSize(item.size)
+                                                }
+                                                className={`min-w-12 rounded-lg border px-4 py-2 text-sm transition ${
+                                                    isSelected
+                                                        ? 'border-[#073b70] bg-[#073b70] text-white font-bold'
+                                                        : isOutOfStock
+                                                        ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 line-through'
+                                                        : 'border-[#073b70]/15 bg-white text-[#073b70] hover:border-[#073b70]'
                                                 }`}
-                                        >
-                                            {item.size}
-                                        </button>
-                                    ))}
+                                            >
+                                                {item.size} {isOutOfStock ? '(Out of stock)' : ''}
+                                            </button>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -524,6 +560,10 @@ const ProductDetails = () => {
 
                                 {addedToCart
                                     ? 'Added to Cart ✓'
+                                    : sizes.length > 0 && !selectedSize
+                                    ? 'Select a Size'
+                                    : sizes.length > 0 && selectedSizeStock <= 0
+                                    ? 'Out of Stock'
                                     : 'Add to Cart'}
                             </button>
 
@@ -621,7 +661,7 @@ const ProductDetails = () => {
                                 <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
                                     {sizes.length > 0
                                         ? 'Available sizes are shown above. Please select the size that best suits you before adding the item to your cart.'
-                                        : 'This item does not currently have size variations.'}
+                                        : 'This item is One Size.'}
                                 </p>
                             )}
 

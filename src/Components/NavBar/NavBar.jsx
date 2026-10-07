@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import logo from '../../assets/jovial_thrift_full.png'
 
@@ -108,6 +108,27 @@ const navLinks = [
 
 const NavBar = () => {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [cartCount, setCartCount] = useState(0)
+
+  useEffect(() => {
+    const updateCount = () => {
+      try {
+        const cart = JSON.parse(localStorage.getItem('jovial_cart') || '[]')
+        const total = cart.reduce((sum, item) => sum + (item.quantity || 1), 0)
+        setCartCount(total)
+      } catch {
+        setCartCount(0)
+      }
+    }
+
+    updateCount()
+    window.addEventListener('storage', updateCount)
+    window.addEventListener('cartUpdated', updateCount)
+    return () => {
+      window.removeEventListener('storage', updateCount)
+      window.removeEventListener('cartUpdated', updateCount)
+    }
+  }, [])
 
   return (
     <header className="w-full bg-[#f8f5ef] text-[#073b70]">
@@ -231,7 +252,7 @@ const NavBar = () => {
               <CartIcon />
 
               <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#073b70] px-1 text-[9px] font-bold text-white">
-                0
+                {cartCount}
               </span>
             </NavLink>
 
