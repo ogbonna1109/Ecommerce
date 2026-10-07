@@ -74,13 +74,23 @@ const Cart = () => {
   useEffect(() => {
     const loadCart = () => {
       try {
-        const cartData = JSON.parse(localStorage.getItem('jovial_cart') || '[]')
-        setItems(cartData)
+        const rawData = localStorage.getItem('jovial_cart')
+        if (!rawData) {
+          setItems([])
+          return
+        }
+        const parsed = JSON.parse(rawData)
+        if (Array.isArray(parsed)) {
+          setItems(parsed)
+        } else {
+          setItems([])
+        }
       } catch (err) {
-        console.error('Failed to load cart:', err)
+        console.error('Failed to parse jovial_cart from localStorage:', err)
         setItems([])
       }
     }
+
     loadCart()
 
     window.addEventListener('storage', loadCart)
@@ -93,16 +103,21 @@ const Cart = () => {
 
   const saveCart = (newItems) => {
     setItems(newItems)
-    localStorage.setItem('jovial_cart', JSON.stringify(newItems))
+    try {
+      localStorage.setItem('jovial_cart', JSON.stringify(newItems))
+    } catch (err) {
+      console.error('Failed to save cart to localStorage:', err)
+    }
     window.dispatchEvent(new Event('cartUpdated'))
   }
 
   const updateQuantity = (id, size, change) => {
     const updated = items.map((item) => {
-      if (item.id === id && item.size === size) {
+      if (item.id === id && String(item.size) === String(size)) {
+        const currentQty = Number(item.quantity) || 1
         return {
           ...item,
-          quantity: Math.max(1, item.quantity + change),
+          quantity: Math.max(1, currentQty + change),
         }
       }
       return item
@@ -112,13 +127,18 @@ const Cart = () => {
 
   const removeItem = (id, size) => {
     const updated = items.filter(
-      (item) => !(item.id === id && item.size === size),
+      (item) => !(item.id === id && String(item.size) === String(size)),
     )
     saveCart(updated)
   }
 
+  const totalItemCount = items.reduce(
+    (sum, item) => sum + (Number(item.quantity) || 1),
+    0,
+  )
+
   const subtotal = items.reduce(
-    (total, item) => total + Number(item.price) * item.quantity,
+    (total, item) => total + Number(item.price) * (Number(item.quantity) || 1),
     0,
   )
 
@@ -179,7 +199,7 @@ const Cart = () => {
 
             <NavLink
               to="/Shop"
-              className="mt-7 inline-flex rounded-full bg-[#073b70] px-7 py-4 text-xs font-bold uppercase tracking-wider text-white"
+              className="mt-7 inline-flex rounded-full bg-[#073b70] px-7 py-4 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#052d56]"
             >
               Continue Shopping →
             </NavLink>
@@ -199,13 +219,13 @@ const Cart = () => {
                   </h2>
 
                   <p className="mt-1 text-xs text-[#31506c]">
-                    {items.length} {items.length === 1 ? 'item' : 'items'}
+                    {totalItemCount} {totalItemCount === 1 ? 'item' : 'items'}
                   </p>
                 </div>
 
                 <NavLink
                   to="/Shop"
-                  className="text-xs font-bold underline underline-offset-4"
+                  className="text-xs font-bold underline underline-offset-4 hover:text-[#052d56]"
                 >
                   Continue Shopping
                 </NavLink>
@@ -214,100 +234,100 @@ const Cart = () => {
 
               <div className="divide-y divide-[#073b70]/10">
 
-                {items.map((item) => (
-                  <div
-                    key={`${item.id}-${item.size}`}
-                    className="flex gap-4 p-5 sm:p-7"
-                  >
+                {items.map((item) => {
+                  const itemPrice = Number(item.price) || 0
+                  const itemQuantity = Number(item.quantity) || 1
+                  const itemSubtotal = itemPrice * itemQuantity
 
-                    {/* IMAGE */}
-                    <div className="h-28 w-24 shrink-0 overflow-hidden rounded-lg bg-[#edf7ff] sm:h-32 sm:w-28">
-                      <NavLink to={`/ProductDetails?id=${item.id}`}>
-                        <img
-                          src={item.image || '/hero/hero1.jpeg'}
-                          alt={item.name}
-                          className="h-full w-full object-cover"
-                        />
-                      </NavLink>
-                    </div>
+                  return (
+                    <div
+                      key={`${item.id}-${item.size}`}
+                      className="flex gap-4 p-5 sm:p-7"
+                    >
 
-                    {/* DETAILS */}
-                    <div className="flex min-w-0 flex-1 flex-col justify-between">
+                      {/* IMAGE */}
+                      <div className="h-28 w-24 shrink-0 overflow-hidden rounded-lg bg-[#edf7ff] sm:h-32 sm:w-28">
+                        <NavLink to={`/ProductDetails?id=${item.id}`}>
+                          <img
+                            src={item.image || '/hero/hero1.jpeg'}
+                            alt={item.name}
+                            className="h-full w-full object-cover"
+                          />
+                        </NavLink>
+                      </div>
 
-                      <div className="flex justify-between gap-4">
+                      {/* DETAILS */}
+                      <div className="flex min-w-0 flex-1 flex-col justify-between">
 
-                        <div>
-                          <NavLink
-                            to={`/ProductDetails?id=${item.id}`}
-                            className="font-serif text-lg font-bold hover:underline"
-                          >
-                            {item.name}
-                          </NavLink>
+                        <div className="flex justify-between gap-4">
 
-                          <p className="mt-1 text-xs text-[#31506c]">
-                            Size: <span className="font-semibold text-[#073b70]">{item.size}</span>
-                          </p>
+                          <div>
+                            <NavLink
+                              to={`/ProductDetails?id=${item.id}`}
+                              className="font-serif text-lg font-bold hover:underline"
+                            >
+                              {item.name}
+                            </NavLink>
 
-                          {item.color && (
                             <p className="mt-1 text-xs text-[#31506c]">
-                              Color: {item.color}
+                              Size: <span className="font-semibold text-[#073b70]">{item.size || 'One Size'}</span>
                             </p>
-                          )}
 
-                          <p className="mt-1 text-xs text-[#31506c]">
-                            Unit Price: ${Number(item.price).toFixed(2)}
+                            <p className="mt-1 text-xs text-[#31506c]">
+                              Unit Price: ${itemPrice.toFixed(2)}
+                            </p>
+                          </div>
+
+                          <p className="font-bold text-[#0064b8]">
+                            ${itemSubtotal.toFixed(2)}
                           </p>
-                        </div>
-
-                        <p className="font-bold text-[#0064b8]">
-                          ${(Number(item.price) * item.quantity).toFixed(2)}
-                        </p>
-
-                      </div>
-
-                      <div className="mt-4 flex items-center justify-between">
-
-                        {/* QUANTITY */}
-                        <div className="flex items-center rounded-md border border-[#073b70]/15">
-
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, item.size, -1)}
-                            className="flex h-8 w-8 items-center justify-center hover:bg-[#edf7ff]"
-                            aria-label="Decrease quantity"
-                          >
-                            <MinusIcon />
-                          </button>
-
-                          <span className="flex h-8 min-w-8 items-center justify-center border-x border-[#073b70]/15 text-xs font-semibold">
-                            {item.quantity}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, item.size, 1)}
-                            className="flex h-8 w-8 items-center justify-center hover:bg-[#edf7ff]"
-                            aria-label="Increase quantity"
-                          >
-                            <PlusIcon />
-                          </button>
 
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => removeItem(item.id, item.size)}
-                          className="flex items-center gap-2 text-xs text-[#31506c] transition hover:text-red-600"
-                        >
-                          <TrashIcon />
-                          Remove
-                        </button>
+                        <div className="mt-4 flex items-center justify-between">
+
+                          {/* QUANTITY */}
+                          <div className="flex items-center rounded-md border border-[#073b70]/15">
+
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, item.size, -1)}
+                              className="flex h-8 w-8 items-center justify-center hover:bg-[#edf7ff]"
+                              aria-label="Decrease quantity"
+                            >
+                              <MinusIcon />
+                            </button>
+
+                            <span className="flex h-8 min-w-8 items-center justify-center border-x border-[#073b70]/15 text-xs font-semibold">
+                              {itemQuantity}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, item.size, 1)}
+                              className="flex h-8 w-8 items-center justify-center hover:bg-[#edf7ff]"
+                              aria-label="Increase quantity"
+                            >
+                              <PlusIcon />
+                            </button>
+
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeItem(item.id, item.size)}
+                            className="flex items-center gap-2 text-xs text-[#31506c] transition hover:text-red-600"
+                          >
+                            <TrashIcon />
+                            Remove
+                          </button>
+
+                        </div>
 
                       </div>
-
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
 
               </div>
             </div>
@@ -395,7 +415,7 @@ const Cart = () => {
 
                   <button
                     type="button"
-                    className="rounded-md border border-[#073b70] px-4 text-xs font-bold"
+                    className="rounded-md border border-[#073b70] px-4 text-xs font-bold hover:bg-[#edf7ff]"
                   >
                     Apply
                   </button>
@@ -418,7 +438,7 @@ const Cart = () => {
               </div>
 
               <NavLink
-                to="/Contact"
+                to="/Checkout"
                 className="flex w-full items-center justify-center rounded-md bg-[#073b70] py-4 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#052d56]"
               >
                 Proceed to Checkout →

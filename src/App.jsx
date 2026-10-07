@@ -34,6 +34,17 @@ const App = () => {
         <Route path="/Profile" element={<Profile />} />
 
         <Route path="/ProductDetails" element={<ProductDetails />} />
+        <Route
+          path="/Checkout"
+          element={
+            <div className="min-h-screen bg-[#f8f5ef] px-5 py-20 text-center text-[#073b70]">
+              <h1 className="font-serif text-3xl font-bold">Checkout</h1>
+              <p className="mt-3 text-sm text-[#31506c]">
+                Checkout page will be built in the next step.
+              </p>
+            </div>
+          }
+        />
 
         {/* Admin Routes */}
         <Route path="/Admin" element={<AdminLogin />} />
