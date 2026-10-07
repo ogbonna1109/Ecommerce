@@ -1,21 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { NavLink, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
-
-const fallbackImages = [
-    '/hero/hero1.jpeg',
-    '/hero/hero2.jpeg',
-    '/hero/hero3.jpeg',
-]
-
-const relatedProducts = [
-    { name: 'Classic Handbag', price: '$48', image: '/hero/hero2.jpeg' },
-    { name: 'Vintage Jacket', price: '$42', image: '/hero/hero1.jpeg' },
-    { name: 'Leather Bag', price: '$55', image: '/hero/hero3.jpeg' },
-    { name: 'Sneakers', price: '$36', image: '/hero/hero2.jpeg' },
-    { name: 'Denim Skirt', price: '$24', image: '/hero/hero1.jpeg' },
-    { name: 'Sunglasses', price: '$22', image: '/hero/hero3.jpeg' },
-]
 
 const StarIcon = ({ filled = true }) => (
     <svg
@@ -26,7 +11,7 @@ const StarIcon = ({ filled = true }) => (
         stroke="currentColor"
         strokeWidth="1.5"
     >
-        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z" />
+        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z" />
     </svg>
 )
 
@@ -116,26 +101,25 @@ const ReturnIcon = () => (
 
 const ProductDetails = () => {
     const [searchParams] = useSearchParams()
-
     const productId = searchParams.get('id')
 
     const [product, setProduct] = useState(null)
     const [sizes, setSizes] = useState([])
+    const [relatedProducts, setRelatedProducts] = useState([])
+
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
 
     const [activeImage, setActiveImage] = useState(0)
     const [selectedSize, setSelectedSize] = useState('')
-    const [selectedColor, setSelectedColor] = useState(0)
     const [activeTab, setActiveTab] = useState('Description')
     const [wishlist, setWishlist] = useState(false)
-
-    const colors = ['#075eb5', '#202020', '#ded8ce']
+    const [addedToCart, setAddedToCart] = useState(false)
 
     useEffect(() => {
         const fetchProduct = async () => {
             if (!productId) {
-                setError('No product was selected.')
+                setError('Product not found.')
                 setLoading(false)
                 return
             }
@@ -143,35 +127,53 @@ const ProductDetails = () => {
             setLoading(true)
             setError('')
 
-            const { data: productData, error: productError } = await supabase
+            const { data, error: productError } = await supabase
                 .from('products')
                 .select('*')
                 .eq('id', productId)
                 .eq('is_available', true)
                 .single()
 
-            if (productError) {
-                console.error('Supabase product error:', productError)
-                setError(productError.message || 'Unable to load this product.')
-                setProduct(null)
+            if (productError || !data) {
+                console.error('Product details error:', productError)
+                setError('This product could not be found.')
                 setLoading(false)
                 return
             }
 
-            setProduct(productData)
+            setProduct(data)
 
             const { data: sizeData, error: sizeError } = await supabase
                 .from('product_sizes')
                 .select('*')
                 .eq('product_id', productId)
-                .order('size', { ascending: true })
+                .order('size')
 
             if (sizeError) {
-                console.error('Supabase product sizes error:', sizeError)
+                console.error('Product sizes error:', sizeError)
                 setSizes([])
             } else {
-                setSizes(sizeData || [])
+                const availableSizes = (sizeData || []).filter(
+                    (item) => item.stock > 0,
+                )
+
+                setSizes(availableSizes)
+
+                if (availableSizes.length > 0) {
+                    setSelectedSize(availableSizes[0].size)
+                }
             }
+
+            const { data: relatedData } = await supabase
+                .from('products')
+                .select('*')
+                .eq('is_available', true)
+                .neq('id', productId)
+                .eq('category', data.category)
+                .order('created_at', { ascending: false })
+                .limit(6)
+
+            setRelatedProducts(relatedData || [])
 
             setLoading(false)
         }
@@ -179,39 +181,17 @@ const ProductDetails = () => {
         fetchProduct()
     }, [productId])
 
-    useEffect(() => {
-        setActiveImage(0)
-        setSelectedSize('')
-        setWishlist(false)
-    }, [productId])
+    const addToCart = () => {
+        if (!product) return
 
-    const productImages = useMemo(() => {
-        if (!product?.image_url) {
-            return fallbackImages
-        }
-
-        return [
-            product.image_url,
-            product.image_url,
-            product.image_url,
-        ]
-    }, [product])
-
-    const availableSizes = useMemo(() => {
-        return sizes.filter((item) => item.stock > 0)
-    }, [sizes])
-
-    const totalStock = useMemo(() => {
-        return sizes.reduce((total, item) => total + Number(item.stock || 0), 0)
-    }, [sizes])
-
-    const isInStock = totalStock > 0 || sizes.length === 0
-
-    const handleAddToCart = () => {
         if (sizes.length > 0 && !selectedSize) {
-            alert('Please select a size first.')
+            alert('Please select a size.')
             return
         }
+
+        const existingCart = JSON.parse(
+            localStorage.getItem('jovial_cart') || '[]',
+        )
 
         const cartItem = {
             id: product.id,
@@ -222,48 +202,75 @@ const ProductDetails = () => {
             quantity: 1,
         }
 
-        console.log('Add to cart:', cartItem)
+        const existingIndex = existingCart.findIndex(
+            (item) =>
+                item.id === cartItem.id &&
+                item.size === cartItem.size,
+        )
 
-        alert(`${product.name} has been added to your cart.`)
+        let updatedCart
+
+        if (existingIndex !== -1) {
+            updatedCart = [...existingCart]
+
+            updatedCart[existingIndex] = {
+                ...updatedCart[existingIndex],
+                quantity: updatedCart[existingIndex].quantity + 1,
+            }
+        } else {
+            updatedCart = [...existingCart, cartItem]
+        }
+
+        localStorage.setItem('jovial_cart', JSON.stringify(updatedCart))
+
+        setAddedToCart(true)
+
+        setTimeout(() => {
+            setAddedToCart(false)
+        }, 2000)
     }
 
     if (loading) {
         return (
-            <main className="min-h-[70vh] bg-[#f8f5ef] px-5 py-20 text-center text-[#073b70]">
-                <div className="mx-auto max-w-xl">
-                    <p className="font-serif text-2xl font-bold">
-                        Loading product...
-                    </p>
-                    <p className="mt-3 text-sm text-[#31506c]">
-                        Please wait while we fetch the product details.
-                    </p>
-                </div>
+            <main className="min-h-screen bg-[#f8f5ef] px-5 py-20 text-center text-[#073b70]">
+                <p className="text-lg font-semibold">
+                    Loading product...
+                </p>
             </main>
         )
     }
 
     if (error || !product) {
         return (
-            <main className="min-h-[70vh] bg-[#f8f5ef] px-5 py-20 text-center text-[#073b70]">
-                <div className="mx-auto max-w-xl rounded-xl border border-red-200 bg-white p-10">
-                    <h1 className="font-serif text-3xl font-bold">
-                        Something went wrong.
-                    </h1>
+            <main className="min-h-screen bg-[#f8f5ef] px-5 py-20 text-center text-[#073b70]">
+                <h1 className="font-serif text-3xl font-bold">
+                    Product not found
+                </h1>
 
-                    <p className="mt-4 text-red-600">
-                        {error || 'Product not found.'}
-                    </p>
+                <p className="mt-3 text-[#31506c]">
+                    {error || 'This product is no longer available.'}
+                </p>
 
-                    <NavLink
-                        to="/Shop"
-                        className="mt-7 inline-flex rounded-lg bg-[#073b70] px-6 py-3 text-sm font-bold text-white hover:bg-[#052d56]"
-                    >
-                        Back to Shop
-                    </NavLink>
-                </div>
+                <NavLink
+                    to="/Shop"
+                    className="mt-7 inline-block rounded-lg bg-[#073b70] px-6 py-3 text-sm font-semibold text-white"
+                >
+                    Back to Shop
+                </NavLink>
             </main>
         )
     }
+
+    const image = product.image_url || '/hero/hero1.jpeg'
+
+    const productImages = [
+        image,
+        image,
+        image,
+    ]
+
+    const selectedSizeStock =
+        sizes.find((item) => item.size === selectedSize)?.stock || 0
 
     return (
         <main className="bg-[#f8f5ef] text-[#073b70]">
@@ -283,6 +290,10 @@ const ProductDetails = () => {
 
                     <span>›</span>
 
+                    <span>{product.category}</span>
+
+                    <span>›</span>
+
                     <span className="text-[#073b70]">
                         {product.name}
                     </span>
@@ -296,20 +307,19 @@ const ProductDetails = () => {
                     {/* Images */}
                     <div className="grid grid-cols-[64px_1fr] gap-4 sm:grid-cols-[78px_1fr]">
 
-                        {/* Thumbnails */}
                         <div className="flex flex-col gap-3">
-                            {productImages.map((image, index) => (
+                            {productImages.map((item, index) => (
                                 <button
-                                    key={`${image}-${index}`}
+                                    key={index}
                                     type="button"
                                     onClick={() => setActiveImage(index)}
                                     className={`aspect-[3/4] overflow-hidden rounded-lg border-2 bg-white transition ${activeImage === index
-                                        ? 'border-[#073b70]'
-                                        : 'border-transparent'
+                                            ? 'border-[#073b70]'
+                                            : 'border-transparent'
                                         }`}
                                 >
                                     <img
-                                        src={image}
+                                        src={item}
                                         alt={`${product.name} ${index + 1}`}
                                         className="h-full w-full object-cover"
                                     />
@@ -318,7 +328,7 @@ const ProductDetails = () => {
 
                             <button
                                 type="button"
-                                className="py-1 text-xl text-[#073b70]"
+                                className="py-1 text-xl"
                                 onClick={() =>
                                     setActiveImage(
                                         (activeImage + 1) % productImages.length,
@@ -329,7 +339,6 @@ const ProductDetails = () => {
                             </button>
                         </div>
 
-                        {/* Main Image */}
                         <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-[#e8edf0]">
                             <img
                                 src={productImages[activeImage]}
@@ -338,7 +347,7 @@ const ProductDetails = () => {
                             />
 
                             <span className="absolute left-4 top-4 rounded-full bg-[#073b70] px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">
-                                New
+                                {product.is_available ? 'Available' : 'Sold Out'}
                             </span>
 
                             <button
@@ -373,7 +382,7 @@ const ProductDetails = () => {
 
                         <div className="absolute -right-1 -top-12 hidden rotate-[-6deg] lg:block">
                             <p className="font-serif text-xl italic leading-6 text-[#073b70]">
-                                Good Denim
+                                Good Finds
                                 <br />
                                 Better Outfits ♡
                             </p>
@@ -391,14 +400,6 @@ const ProductDetails = () => {
                             <span className="font-serif text-3xl font-bold">
                                 ${Number(product.price).toFixed(2)}
                             </span>
-
-                            <span className="text-lg text-[#31506c]/60 line-through">
-                                ${(Number(product.price) * 1.5).toFixed(2)}
-                            </span>
-
-                            <span className="rounded-full bg-[#073b70] px-3 py-1 text-xs font-bold text-white">
-                                New
-                            </span>
                         </div>
 
                         {/* Rating */}
@@ -412,160 +413,118 @@ const ProductDetails = () => {
                             </div>
 
                             <span className="text-sm text-[#0064b8]">
-                                4.8 (124 reviews)
+                                4.8 customer rating
                             </span>
                         </div>
 
                         {/* Stock */}
                         <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-                            <span
-                                className={`flex items-center gap-2 ${isInStock
-                                    ? 'text-green-600'
-                                    : 'text-red-600'
-                                    }`}
-                            >
-                                <span
-                                    className={`h-2.5 w-2.5 rounded-full ${isInStock
-                                        ? 'bg-green-500'
-                                        : 'bg-red-500'
-                                        }`}
-                                />
-
-                                {isInStock ? 'In Stock' : 'Out of Stock'}
-                            </span>
+                            {sizes.length === 0 ? (
+                                <span className="flex items-center gap-2 text-green-600">
+                                    <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                                    Available
+                                </span>
+                            ) : selectedSizeStock > 0 ? (
+                                <span className="flex items-center gap-2 text-green-600">
+                                    <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                                    {selectedSizeStock} left in stock
+                                </span>
+                            ) : (
+                                <span className="text-red-500">
+                                    Out of stock
+                                </span>
+                            )}
 
                             <span className="text-[#31506c]/50">|</span>
 
-                            <span>Ships within 1–2 business days</span>
+                            <span>
+                                Ships within 1–2 business days
+                            </span>
                         </div>
 
                         <p className="mt-6 max-w-xl text-sm leading-7 text-[#31506c]">
                             {product.description ||
-                                'A unique pre-loved fashion find, carefully selected by Jovial Thrift Hub.'}
+                                'A carefully selected pre-loved piece from Jovial Thrift Hub.'}
                         </p>
 
                         {/* Details */}
                         <div className="mt-6 space-y-3 border-b border-[#073b70]/10 pb-6 text-sm">
                             <p>
-                                <strong>⚙</strong>
+                                <strong>Category:</strong>
                                 <span className="ml-3">
-                                    Category: {product.category}
+                                    {product.category}
                                 </span>
                             </p>
 
                             <p>
-                                <strong>♙</strong>
+                                <strong>Condition:</strong>
                                 <span className="ml-3">
-                                    Fit: Carefully selected pre-loved piece
+                                    Pre-loved
                                 </span>
                             </p>
 
                             <p>
-                                <strong>♧</strong>
+                                <strong>Availability:</strong>
                                 <span className="ml-3">
-                                    Condition: Very good (pre-loved)
+                                    {product.is_available
+                                        ? 'Available'
+                                        : 'Sold Out'}
                                 </span>
                             </p>
-
-                            <p>
-                                <strong>▣</strong>
-                                <span className="ml-3">
-                                    Brand: Unbranded
-                                </span>
-                            </p>
-                        </div>
-
-                        {/* Color */}
-                        <div className="mt-5">
-                            <p className="text-sm font-semibold">
-                                Color:{' '}
-                                <span className="font-normal">Blue</span>
-                            </p>
-
-                            <div className="mt-3 flex gap-3">
-                                {colors.map((color, index) => (
-                                    <button
-                                        key={color}
-                                        type="button"
-                                        aria-label={`Color ${index + 1}`}
-                                        onClick={() => setSelectedColor(index)}
-                                        className={`h-8 w-8 rounded-full border-2 p-1 ${selectedColor === index
-                                            ? 'border-[#073b70]'
-                                            : 'border-transparent'
-                                            }`}
-                                    >
-                                        <span
-                                            className="block h-full w-full rounded-full border border-black/10"
-                                            style={{
-                                                backgroundColor: color,
-                                            }}
-                                        />
-                                    </button>
-                                ))}
-                            </div>
                         </div>
 
                         {/* Sizes */}
-                        <div className="mt-6">
-                            <div className="flex items-center justify-between">
-                                <p className="text-sm font-semibold">
-                                    Size:
-                                </p>
+                        {sizes.length > 0 && (
+                            <div className="mt-6">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-semibold">
+                                        Size:
+                                    </p>
 
-                                <button
-                                    type="button"
-                                    className="text-xs font-medium underline underline-offset-4"
-                                >
-                                    ♧ &nbsp; Size Guide
-                                </button>
-                            </div>
-
-                            <div className="mt-3 flex flex-wrap gap-3">
-                                {sizes.length === 0 ? (
                                     <button
                                         type="button"
-                                        onClick={() => setSelectedSize('One Size')}
-                                        className={`min-w-12 rounded-lg border px-4 py-2 text-sm transition ${selectedSize === 'One Size'
-                                            ? 'border-[#073b70] bg-[#073b70] text-white'
-                                            : 'border-[#073b70]/15 bg-white hover:border-[#073b70]'
-                                            }`}
+                                        className="text-xs font-medium underline underline-offset-4"
                                     >
-                                        One Size
+                                        ♧ &nbsp; Size Guide
                                     </button>
-                                ) : availableSizes.length === 0 ? (
-                                    <p className="text-sm text-red-600">
-                                        All sizes are currently out of stock.
-                                    </p>
-                                ) : (
-                                    availableSizes.map((size) => (
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap gap-3">
+                                    {sizes.map((item) => (
                                         <button
-                                            key={size.id}
+                                            key={item.id}
                                             type="button"
                                             onClick={() =>
-                                                setSelectedSize(size.size)
+                                                setSelectedSize(item.size)
                                             }
-                                            className={`min-w-12 rounded-lg border px-4 py-2 text-sm transition ${selectedSize === size.size
-                                                ? 'border-[#073b70] bg-[#073b70] text-white'
-                                                : 'border-[#073b70]/15 bg-white hover:border-[#073b70]'
+                                            className={`min-w-12 rounded-lg border px-4 py-2 text-sm transition ${selectedSize === item.size
+                                                    ? 'border-[#073b70] bg-[#073b70] text-white'
+                                                    : 'border-[#073b70]/15 bg-white hover:border-[#073b70]'
                                                 }`}
                                         >
-                                            {size.size}
+                                            {item.size}
                                         </button>
-                                    ))
-                                )}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Buttons */}
                         <div className="mt-7 grid gap-3">
                             <button
                                 type="button"
-                                onClick={handleAddToCart}
-                                disabled={!isInStock}
+                                onClick={addToCart}
+                                disabled={
+                                    sizes.length > 0 &&
+                                    (!selectedSize || selectedSizeStock <= 0)
+                                }
                                 className="flex items-center justify-center gap-3 rounded-lg bg-[#073b70] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#052d56] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <CartIcon />
-                                {isInStock ? 'Add to Cart' : 'Out of Stock'}
+
+                                {addedToCart
+                                    ? 'Added to Cart ✓'
+                                    : 'Add to Cart'}
                             </button>
 
                             <button
@@ -574,6 +533,7 @@ const ProductDetails = () => {
                                 className="flex items-center justify-center gap-3 rounded-lg border border-[#073b70] bg-white px-6 py-4 text-sm font-semibold transition hover:bg-[#edf7ff]"
                             >
                                 <HeartIcon />
+
                                 {wishlist
                                     ? 'Added to Wishlist'
                                     : 'Add to Wishlist'}
@@ -582,13 +542,14 @@ const ProductDetails = () => {
 
                         {/* Benefits */}
                         <div className="mt-7 grid grid-cols-3 border-t border-[#073b70]/10 pt-6">
+
                             <div className="flex flex-col items-center gap-2 border-r border-[#073b70]/10 text-center">
                                 <TruckIcon />
 
                                 <p className="text-[10px] leading-4">
-                                    Free Shipping
+                                    Delivery
                                     <br />
-                                    on orders over $50
+                                    Available
                                 </p>
                             </div>
 
@@ -606,11 +567,12 @@ const ProductDetails = () => {
                                 <ReturnIcon />
 
                                 <p className="text-[10px] leading-4">
-                                    Easy
+                                    Quality
                                     <br />
-                                    Returns
+                                    Checked
                                 </p>
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -626,15 +588,14 @@ const ProductDetails = () => {
                             'Size & Fit',
                             'Shipping',
                             'Returns',
-                            'Reviews (124)',
                         ].map((tab) => (
                             <button
                                 key={tab}
                                 type="button"
                                 onClick={() => setActiveTab(tab)}
                                 className={`whitespace-nowrap px-5 py-5 text-xs font-semibold sm:px-7 ${activeTab === tab
-                                    ? 'border-b-2 border-[#073b70] text-[#073b70]'
-                                    : 'text-[#31506c] hover:text-[#073b70]'
+                                        ? 'border-b-2 border-[#073b70] text-[#073b70]'
+                                        : 'text-[#31506c] hover:text-[#073b70]'
                                     }`}
                             >
                                 {tab}
@@ -643,65 +604,45 @@ const ProductDetails = () => {
                     </div>
 
                     <div className="grid gap-10 px-6 py-8 sm:px-8 lg:grid-cols-[1fr_360px] lg:px-10">
+
                         <div>
                             <h2 className="font-serif text-2xl font-bold">
                                 {activeTab}
                             </h2>
 
                             {activeTab === 'Description' && (
-                                <>
-                                    <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
-                                        {product.description ||
-                                            'This carefully selected pre-loved piece is part of the Jovial Thrift Hub collection.'}
-                                    </p>
-
-                                    <h3 className="mt-7 font-serif text-lg font-bold">
-                                        Key Features
-                                    </h3>
-
-                                    <ul className="mt-3 space-y-2 text-sm text-[#31506c]">
-                                        <li>✓ Carefully curated pre-loved piece</li>
-                                        <li>✓ Unique thrift find</li>
-                                        <li>✓ Quality checked</li>
-                                        <li>✓ Limited availability</li>
-                                        <li>✓ Sustainable fashion choice</li>
-                                    </ul>
-                                </>
+                                <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
+                                    {product.description ||
+                                        'This carefully selected pre-loved piece has been chosen for its style, quality and character.'}
+                                </p>
                             )}
 
                             {activeTab === 'Size & Fit' && (
                                 <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
-                                    Available sizes are shown above based on
-                                    current stock. Because these are curated
-                                    thrift pieces, availability may be limited.
+                                    {sizes.length > 0
+                                        ? 'Available sizes are shown above. Please select the size that best suits you before adding the item to your cart.'
+                                        : 'This item does not currently have size variations.'}
                                 </p>
                             )}
 
                             {activeTab === 'Shipping' && (
                                 <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
-                                    Orders are carefully prepared and shipped
-                                    within 1–2 business days. Delivery times
-                                    may vary depending on your location.
+                                    Orders are carefully prepared and delivery arrangements
+                                    are confirmed with you before your order is finalized.
                                 </p>
                             )}
 
                             {activeTab === 'Returns' && (
                                 <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
-                                    Eligible items can be returned according to
-                                    our returns policy. Items should remain in
-                                    their original condition.
-                                </p>
-                            )}
-
-                            {activeTab === 'Reviews (124)' && (
-                                <p className="mt-4 max-w-2xl text-sm leading-7 text-[#31506c]">
-                                    Customers have rated this piece 4.8 out of
-                                    5 based on 124 reviews.
+                                    Please contact Jovial Thrift Hub before completing your
+                                    order if you need clarification about the condition or
+                                    fit of a pre-loved item.
                                 </p>
                             )}
                         </div>
 
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+
                             <div className="rounded-xl bg-[#edf7ff] p-5">
                                 <p className="text-2xl">♧</p>
 
@@ -731,59 +672,71 @@ const ProductDetails = () => {
                                     Finds
                                 </h3>
                             </div>
+
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* Related Products */}
-            <section className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-10">
-                <div className="mb-6 flex items-center justify-between">
-                    <h2 className="font-serif text-2xl font-bold sm:text-3xl">
-                        You May Also Like
-                    </h2>
+            {relatedProducts.length > 0 && (
+                <section className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-10">
 
-                    <NavLink
-                        to="/Shop"
-                        className="text-xs font-semibold text-[#0064b8] sm:text-sm"
-                    >
-                        View All →
-                    </NavLink>
-                </div>
+                    <div className="mb-6 flex items-center justify-between">
+                        <h2 className="font-serif text-2xl font-bold sm:text-3xl">
+                            You May Also Like
+                        </h2>
 
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-                    {relatedProducts.map((relatedProduct) => (
-                        <article
-                            key={relatedProduct.name}
-                            className="group"
+                        <NavLink
+                            to="/Shop"
+                            className="text-xs font-semibold text-[#0064b8] sm:text-sm"
                         >
-                            <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-[#073b70]/10 bg-white">
-                                <img
-                                    src={relatedProduct.image}
-                                    alt={relatedProduct.name}
-                                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                                />
+                            View All →
+                        </NavLink>
+                    </div>
 
-                                <button
-                                    type="button"
-                                    aria-label={`Add ${relatedProduct.name} to wishlist`}
-                                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#0064b8] shadow-sm"
-                                >
-                                    ♡
-                                </button>
-                            </div>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                        {relatedProducts.map((item) => (
+                            <NavLink
+                                key={item.id}
+                                to={`/ProductDetails?id=${item.id}`}
+                                className="group"
+                            >
+                                <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-[#073b70]/10 bg-white">
 
-                            <h3 className="mt-3 text-sm font-medium">
-                                {relatedProduct.name}
-                            </h3>
+                                    <img
+                                        src={
+                                            item.image_url ||
+                                            '/hero/hero1.jpeg'
+                                        }
+                                        alt={item.name}
+                                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                                    />
 
-                            <p className="mt-1 font-semibold text-[#0064b8]">
-                                {relatedProduct.price}
-                            </p>
-                        </article>
-                    ))}
-                </div>
-            </section>
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.preventDefault()
+                                            setWishlist(true)
+                                        }}
+                                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#0064b8] shadow-sm"
+                                    >
+                                        ♡
+                                    </button>
+                                </div>
+
+                                <h3 className="mt-3 text-sm font-medium">
+                                    {item.name}
+                                </h3>
+
+                                <p className="mt-1 font-semibold text-[#0064b8]">
+                                    ${Number(item.price).toFixed(2)}
+                                </p>
+                            </NavLink>
+                        ))}
+                    </div>
+                </section>
+            )}
         </main>
     )
 }
