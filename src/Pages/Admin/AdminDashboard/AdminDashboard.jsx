@@ -43,6 +43,15 @@ const RefreshIcon = () => (
   </svg>
 )
 
+const LayoutDashboardIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="9" rx="1" />
+    <rect x="14" y="3" width="7" height="5" rx="1" />
+    <rect x="14" y="12" width="7" height="9" rx="1" />
+    <rect x="3" y="16" width="7" height="5" rx="1" />
+  </svg>
+)
+
 const ShoppingBagIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
@@ -58,6 +67,21 @@ const OrdersIcon = () => (
     <line x1="16" y1="13" x2="8" y2="13" />
     <line x1="16" y1="17" x2="8" y2="17" />
     <polyline points="10 9 9 9 8 9" />
+  </svg>
+)
+
+const TrendingUpIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+    <polyline points="17 6 23 6 23 12" />
+  </svg>
+)
+
+const AlertTriangleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 )
 
@@ -86,8 +110,8 @@ const ORDER_STATUS_OPTIONS = [
 ]
 
 const AdminDashboard = () => {
-  // Navigation State
-  const [activeTab, setActiveTab] = useState('products') // 'products' | 'orders'
+  // Navigation Tab State: 'overview' | 'products' | 'orders'
+  const [activeTab, setActiveTab] = useState('overview')
 
   // Products State
   const [products, setProducts] = useState([])
@@ -201,13 +225,17 @@ const AdminDashboard = () => {
     }
   }
 
+  // Refresh All Dashboard Data
+  const refreshAllData = async () => {
+    await Promise.all([fetchProductsData(), fetchOrdersData()])
+  }
+
   // Load all data on mount
   useEffect(() => {
-    fetchProductsData()
-    fetchOrdersData()
+    refreshAllData()
   }, [])
 
-  // Filtered Products
+  // Filtered Products for Products Tab
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -216,7 +244,7 @@ const AdminDashboard = () => {
     return matchesSearch && matchesCategory
   })
 
-  // Filtered Orders
+  // Filtered Orders for Orders Tab
   const filteredOrders = orders.filter((o) => {
     const q = orderSearchQuery.trim().toLowerCase()
     const matchesSearch =
@@ -241,31 +269,65 @@ const AdminDashboard = () => {
     return matchesSearch && matchesStatus
   })
 
-  // Statistics
+  // --- STATISTICAL COMPUTATIONS (Real Supabase Data Only) ---
   const totalProducts = products.length
-  const availableCount = products.filter((p) => p.is_available).length
-  const lowStockCount = products.filter((p) => {
-    const sizes = productSizesMap[p.id] || []
-    if (sizes.length === 0) return false
-    const totalStock = sizes.reduce((sum, s) => sum + Number(s.stock), 0)
-    return totalStock <= 3
-  }).length
+  const availableProductsCount = products.filter((p) => p.is_available).length
+  const totalOrdersCount = orders.length
 
-  const totalOrders = orders.length
+  // Paid orders definition: paid_at is not null or status === 'paid'
+  const paidOrdersList = orders.filter(
+    (o) => Boolean(o.paid_at) || (o.status || '').toLowerCase() === 'paid'
+  )
+  const paidOrdersCount = paidOrdersList.length
+
+  // Pending orders definition: status === 'pending'
   const pendingOrdersCount = orders.filter(
     (o) => (o.status || '').toLowerCase() === 'pending'
   ).length
-  const paidOrdersCount = orders.filter(
-    (o) => Boolean(o.paid_at) || (o.status || '').toLowerCase() === 'paid'
-  ).length
-  const processingCount = orders.filter((o) =>
-    ['processing', 'shipped'].includes((o.status || '').toLowerCase())
-  ).length
-  const deliveredCount = orders.filter(
-    (o) => (o.status || '').toLowerCase() === 'delivered'
-  ).length
 
-  // Handlers for Add/Edit/Delete Products
+  // Revenue: Sum of total_amount from paid orders only
+  const totalRevenue = paidOrdersList.reduce(
+    (sum, o) => sum + (Number(o.total_amount) || 0),
+    0
+  )
+
+  // Revenue breakdown by month
+  const revenueByMonth = paidOrdersList.reduce((acc, order) => {
+    const dateObj = new Date(order.paid_at || order.created_at)
+    if (isNaN(dateObj.getTime())) return acc
+    const monthKey = dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    acc[monthKey] = (acc[monthKey] || 0) + (Number(order.total_amount) || 0)
+    return acc
+  }, {})
+
+  const sortedMonths = Object.keys(revenueByMonth).sort((a, b) => {
+    return new Date(b).getTime() - new Date(a).getTime()
+  })
+
+  // Low stock inventory items (stock <= 3 threshold)
+  const lowStockItems = []
+  products.forEach((product) => {
+    const sizes = productSizesMap[product.id] || []
+    sizes.forEach((sizeItem) => {
+      if (Number(sizeItem.stock) <= 3) {
+        lowStockItems.push({
+          productId: product.id,
+          productName: product.name,
+          productImage: product.image_url,
+          category: product.category,
+          size: sizeItem.size,
+          stock: sizeItem.stock,
+          productRef: product,
+        })
+      }
+    })
+  })
+  const lowStockCount = lowStockItems.length
+
+  // Recent Orders (Top 6 latest orders)
+  const recentOrders = orders.slice(0, 6)
+
+  // Product CRUD Handlers
   const handleCreateProduct = async (e) => {
     e.preventDefault()
     setModalLoading(true)
@@ -394,7 +456,7 @@ const AdminDashboard = () => {
     }
   }
 
-  // Manage Sizes & Stock
+  // Stock Handlers
   const handleOpenStockModal = (product) => {
     setSelectedProduct(product)
     const existingSizes = productSizesMap[product.id] || []
@@ -470,7 +532,7 @@ const AdminDashboard = () => {
     }
   }
 
-  // View Order Details
+  // Order Details Modal Handlers
   const handleOpenOrderDetails = async (order) => {
     setSelectedOrder(order)
     setShowOrderModal(true)
@@ -495,7 +557,7 @@ const AdminDashboard = () => {
     }
   }
 
-  // Update Order Status (Does NOT deduct stock again!)
+  // Update Order Status (NO double stock deduction)
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     setUpdatingOrderStatus(true)
     setFeedback({ type: '', message: '' })
@@ -508,19 +570,17 @@ const AdminDashboard = () => {
 
       if (error) throw error
 
-      // Update local orders list immediately
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
       )
 
-      // Update active order modal state immediately
       if (selectedOrder && selectedOrder.id === orderId) {
         setSelectedOrder((prev) => ({ ...prev, status: newStatus }))
       }
 
       setFeedback({
         type: 'success',
-        message: `Order #${selectedOrder?.order_number || orderId} status updated to "${newStatus}". (Inventory was NOT double-deducted).`,
+        message: `Order #${selectedOrder?.order_number || orderId} status updated to "${newStatus}". Stock was not altered.`,
       })
     } catch (err) {
       console.error('Update status error:', err)
@@ -538,7 +598,7 @@ const AdminDashboard = () => {
     window.location.href = '/Admin'
   }
 
-  // Helpers for Badges
+  // Badge Render Helpers
   const renderOrderStatusBadge = (status) => {
     const s = (status || 'pending').toLowerCase()
     switch (s) {
@@ -599,6 +659,8 @@ const AdminDashboard = () => {
     )
   }
 
+  const isLoadingOverall = loadingProducts || loadingOrders
+
   return (
     <main className="min-h-screen bg-[#f8f5ef] text-[#073b70] px-5 py-8 sm:px-8 lg:px-10">
       <div className="mx-auto max-w-7xl">
@@ -610,16 +672,29 @@ const AdminDashboard = () => {
               Jovial Thrift Hub Management
             </p>
             <h1 className="mt-1 font-serif text-4xl font-bold text-[#073b70]">
-              Admin Dashboard
+              Admin Overview
             </h1>
             <p className="mt-1 text-xs text-[#31506c]">
-              Manage products, catalog stock, and customer orders.
+              Store performance overview, catalog statistics, revenue metrics, and orders.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             {/* SECTION SWITCH TABS */}
-            <div className="flex rounded-xl bg-white border border-[#073b70]/15 p-1">
+            <div className="flex rounded-xl bg-white border border-[#073b70]/15 p-1 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('overview')}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition ${
+                  activeTab === 'overview'
+                    ? 'bg-[#073b70] text-white shadow-xs'
+                    : 'text-[#073b70] hover:bg-[#edf7ff]'
+                }`}
+              >
+                <LayoutDashboardIcon />
+                Overview
+              </button>
+
               <button
                 type="button"
                 onClick={() => setActiveTab('products')}
@@ -632,6 +707,7 @@ const AdminDashboard = () => {
                 <ShoppingBagIcon />
                 Products ({totalProducts})
               </button>
+
               <button
                 type="button"
                 onClick={() => setActiveTab('orders')}
@@ -642,43 +718,20 @@ const AdminDashboard = () => {
                 }`}
               >
                 <OrdersIcon />
-                Orders ({totalOrders})
+                Orders ({totalOrdersCount})
               </button>
             </div>
 
-            {activeTab === 'products' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setProductForm({
-                    name: '',
-                    description: '',
-                    price: '',
-                    category: 'Women',
-                    image_url: '',
-                    is_available: true,
-                  })
-                  setShowAddModal(true)
-                }}
-                className="flex items-center gap-2 rounded-xl bg-[#073b70] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#052d56]"
-              >
-                <PlusIcon />
-                Add Product
-              </button>
-            )}
-
-            {activeTab === 'orders' && (
-              <button
-                type="button"
-                onClick={fetchOrdersData}
-                disabled={loadingOrders}
-                className="flex items-center gap-2 rounded-xl border border-[#073b70]/20 bg-white px-3 py-2.5 text-xs font-semibold text-[#073b70] hover:bg-[#edf7ff] disabled:opacity-50"
-                title="Refresh customer orders list"
-              >
-                <RefreshIcon />
-                Refresh
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={refreshAllData}
+              disabled={isLoadingOverall}
+              className="flex items-center gap-2 rounded-xl border border-[#073b70]/20 bg-white px-3.5 py-2.5 text-xs font-semibold text-[#073b70] hover:bg-[#edf7ff] disabled:opacity-50"
+              title="Refresh store data"
+            >
+              <RefreshIcon />
+              Refresh
+            </button>
 
             <button
               type="button"
@@ -703,66 +756,315 @@ const AdminDashboard = () => {
             <button
               type="button"
               onClick={() => setFeedback({ type: '', message: '' })}
-              className="text-xs font-bold underline"
+              className="text-xs font-bold underline ml-4"
             >
               Dismiss
             </button>
           </div>
         )}
 
-        {/* TOP METRICS SUMMARY */}
-        {activeTab === 'products' ? (
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-[#073b70]/10 bg-white p-6 shadow-xs">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#31506c]">Total Products</p>
-              <p className="mt-2 text-3xl font-bold text-[#073b70]">{totalProducts}</p>
-            </div>
-
-            <div className="rounded-2xl border border-[#073b70]/10 bg-white p-6 shadow-xs">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#31506c]">Available Products</p>
-              <p className="mt-2 text-3xl font-bold text-green-600">{availableCount}</p>
-            </div>
-
-            <div className="rounded-2xl border border-[#073b70]/10 bg-white p-6 shadow-xs">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#31506c]">Low Stock Items</p>
-              <p className="mt-2 text-3xl font-bold text-amber-600">{lowStockCount}</p>
-            </div>
-
-            <div className="rounded-2xl border border-[#073b70]/10 bg-white p-6 shadow-xs">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#31506c]">Customer Orders</p>
-              <p className="mt-2 text-3xl font-bold text-[#0064b8]">{totalOrders}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#31506c]">Total Orders</p>
-              <p className="mt-1.5 text-2xl font-bold text-[#073b70]">{totalOrders}</p>
-            </div>
-
-            <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#31506c]">Pending</p>
-              <p className="mt-1.5 text-2xl font-bold text-amber-600">{pendingOrdersCount}</p>
-            </div>
-
-            <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#31506c]">Paid Orders</p>
-              <p className="mt-1.5 text-2xl font-bold text-emerald-600">{paidOrdersCount}</p>
-            </div>
-
-            <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#31506c]">Processing / Shipped</p>
-              <p className="mt-1.5 text-2xl font-bold text-blue-600">{processingCount}</p>
-            </div>
-
-            <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#31506c]">Delivered</p>
-              <p className="mt-1.5 text-2xl font-bold text-teal-600">{deliveredCount}</p>
-            </div>
+        {/* LOADING INDICATOR */}
+        {isLoadingOverall && (
+          <div className="mt-6 rounded-xl border border-[#073b70]/10 bg-white p-4 text-center text-xs text-[#31506c] animate-pulse">
+            Fetching latest database metrics from Supabase...
           </div>
         )}
 
-        {/* PRODUCTS MANAGEMENT TAB */}
+        {/* TAB 1: OVERVIEW SCREEN */}
+        {activeTab === 'overview' && (
+          <div className="mt-8 space-y-8">
+            
+            {/* 7 DASHBOARD STATISTIC CARDS */}
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+              
+              {/* 1. Total Products */}
+              <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Total Products</p>
+                <p className="mt-2 text-2xl font-bold text-[#073b70]">{totalProducts}</p>
+                <p className="mt-1 text-[10px] text-[#31506c]">Catalog items</p>
+              </div>
+
+              {/* 2. Available Products */}
+              <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Available</p>
+                <p className="mt-2 text-2xl font-bold text-green-600">{availableProductsCount}</p>
+                <p className="mt-1 text-[10px] text-[#31506c]">Active for checkout</p>
+              </div>
+
+              {/* 3. Total Orders */}
+              <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Total Orders</p>
+                <p className="mt-2 text-2xl font-bold text-[#073b70]">{totalOrdersCount}</p>
+                <p className="mt-1 text-[10px] text-[#31506c]">Customer checkouts</p>
+              </div>
+
+              {/* 4. Paid Orders */}
+              <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Paid Orders</p>
+                <p className="mt-2 text-2xl font-bold text-emerald-600">{paidOrdersCount}</p>
+                <p className="mt-1 text-[10px] text-[#31506c]">Verified payments</p>
+              </div>
+
+              {/* 5. Pending Orders */}
+              <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Pending Orders</p>
+                <p className="mt-2 text-2xl font-bold text-amber-600">{pendingOrdersCount}</p>
+                <p className="mt-1 text-[10px] text-[#31506c]">Needs processing</p>
+              </div>
+
+              {/* 6. Low Stock Products */}
+              <div className="rounded-2xl border border-[#073b70]/10 bg-white p-5 shadow-xs flex flex-col justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Low Stock</p>
+                <p className="mt-2 text-2xl font-bold text-red-600">{lowStockCount}</p>
+                <p className="mt-1 text-[10px] text-[#31506c]">Sizes stock ≤ 3</p>
+              </div>
+
+              {/* 7. Total Revenue */}
+              <div className="rounded-2xl border border-[#073b70]/10 bg-[#073b70] p-5 text-white shadow-md flex flex-col justify-between col-span-full xl:col-span-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#edf7ff]">Total Revenue</p>
+                <p className="mt-2 text-2xl font-bold text-white">${totalRevenue.toFixed(2)}</p>
+                <p className="mt-1 text-[10px] text-[#edf7ff]">From paid orders</p>
+              </div>
+
+            </div>
+
+            {/* MAIN DASHBOARD CONTENT GRID */}
+            <div className="grid gap-8 lg:grid-cols-3">
+
+              {/* LEFT / CENTER COLUMN (2 COLS): RECENT ORDERS & REVENUE */}
+              <div className="lg:col-span-2 space-y-8">
+                
+                {/* REVENUE BY MONTH */}
+                <div className="rounded-2xl border border-[#073b70]/10 bg-white p-6 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-[#073b70]/10 pb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <TrendingUpIcon />
+                        <h3 className="font-serif text-xl font-bold">Revenue Overview</h3>
+                      </div>
+                      <p className="text-xs text-[#31506c] mt-0.5">
+                        Earnings calculated strictly from verified paid customer orders
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#31506c]">Gross Revenue</p>
+                      <p className="text-xl font-bold text-[#0064b8]">${totalRevenue.toFixed(2)}</p>
+                    </div>
+                  </div>
+
+                  {sortedMonths.length === 0 ? (
+                    <div className="py-8 text-center text-xs italic text-[#31506c]">
+                      No verified revenue recorded yet. Paid customer checkouts will automatically populate revenue statistics.
+                    </div>
+                  ) : (
+                    <div className="mt-5 space-y-3">
+                      {sortedMonths.map((month) => {
+                        const monthAmt = revenueByMonth[month]
+                        const pct = totalRevenue > 0 ? (monthAmt / totalRevenue) * 100 : 0
+
+                        return (
+                          <div key={month} className="space-y-1">
+                            <div className="flex justify-between text-xs font-semibold">
+                              <span className="text-[#073b70]">{month}</span>
+                              <span className="font-mono font-bold text-[#0064b8]">
+                                ${monthAmt.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="h-2.5 w-full rounded-full bg-[#edf7ff]">
+                              <div
+                                className="h-2.5 rounded-full bg-[#073b70] transition-all duration-500"
+                                style={{ width: `${Math.max(5, Math.min(100, pct))}%` }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* RECENT ORDERS TABLE */}
+                <div className="rounded-2xl border border-[#073b70]/10 bg-white p-6 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-[#073b70]/10 pb-4">
+                    <div>
+                      <h3 className="font-serif text-xl font-bold">Recent Orders</h3>
+                      <p className="text-xs text-[#31506c] mt-0.5">
+                        Latest customer purchases placed on Jovial Thrift Hub
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('orders')}
+                      className="rounded-xl bg-[#edf7ff] px-4 py-2 text-xs font-bold text-[#073b70] hover:bg-[#073b70] hover:text-white transition"
+                    >
+                      View All Orders →
+                    </button>
+                  </div>
+
+                  {recentOrders.length === 0 ? (
+                    <div className="py-12 text-center text-xs italic text-[#31506c]">
+                      No orders placed yet. Customer orders will appear here automatically.
+                    </div>
+                  ) : (
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-[#073b70]/10 text-[10px] uppercase tracking-wider text-[#31506c]">
+                            <th className="py-3 px-2">Order Ref</th>
+                            <th className="py-3 px-2">Customer</th>
+                            <th className="py-3 px-2">Date</th>
+                            <th className="py-3 px-2">Total</th>
+                            <th className="py-3 px-2">Payment</th>
+                            <th className="py-3 px-2">Status</th>
+                            <th className="py-3 px-2 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#073b70]/10">
+                          {recentOrders.map((o) => {
+                            const dateStr = o.created_at
+                              ? new Date(o.created_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : 'N/A'
+
+                            return (
+                              <tr key={o.id} className="hover:bg-[#f8f5ef]/50">
+                                <td className="py-3.5 px-2 font-mono font-bold text-[#073b70]">
+                                  {o.order_number || o.id.slice(0, 8)}
+                                </td>
+
+                                <td className="py-3.5 px-2 font-semibold text-[#073b70]">
+                                  {o.customer_name || 'Guest'}
+                                </td>
+
+                                <td className="py-3.5 px-2 text-[#31506c] whitespace-nowrap">
+                                  {dateStr}
+                                </td>
+
+                                <td className="py-3.5 px-2 font-bold text-[#0064b8]">
+                                  ${Number(o.total_amount || 0).toFixed(2)}
+                                </td>
+
+                                <td className="py-3.5 px-2">
+                                  {renderPaymentStatusBadge(o)}
+                                </td>
+
+                                <td className="py-3.5 px-2">
+                                  {renderOrderStatusBadge(o.status)}
+                                </td>
+
+                                <td className="py-3.5 px-2 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenOrderDetails(o)}
+                                    className="p-1.5 text-[#073b70] hover:bg-[#edf7ff] rounded-lg"
+                                    title="View order details"
+                                  >
+                                    <EyeIcon />
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* RIGHT COLUMN (1 COL): LOW STOCK ALERTS */}
+              <div className="space-y-8">
+                <div className="rounded-2xl border border-[#073b70]/10 bg-white p-6 shadow-xs h-fit">
+                  <div className="flex items-center justify-between border-b border-[#073b70]/10 pb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-lg bg-amber-50 text-amber-600">
+                        <AlertTriangleIcon />
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-lg font-bold">Low Stock Alert</h3>
+                        <p className="text-[11px] text-[#31506c]">Stock quantity ≤ 3 units</p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('products')}
+                      className="text-xs font-bold text-[#073b70] hover:underline"
+                    >
+                      Manage Stock
+                    </button>
+                  </div>
+
+                  {lowStockItems.length === 0 ? (
+                    <div className="py-10 text-center text-xs italic text-green-700 bg-green-50 rounded-xl mt-4 border border-green-200 p-4">
+                      ✓ All product sizes have healthy inventory levels!
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-3">
+                      {lowStockItems.slice(0, 8).map((item, idx) => (
+                        <div
+                          key={`${item.productId}-${item.size}-${idx}`}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-[#073b70]/10 bg-[#f8f5ef] p-3 text-xs"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img
+                              src={item.productImage || '/hero/hero1.jpeg'}
+                              alt={item.productName}
+                              className="h-10 w-9 rounded-md object-cover bg-[#edf7ff] shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-bold text-[#073b70] truncate">{item.productName}</p>
+                              <p className="text-[10px] text-[#31506c]">
+                                Size: <span className="font-semibold">{item.size}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <span
+                              className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                                item.stock <= 0
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {item.stock <= 0 ? 'Out of stock' : `${item.stock} left`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('products')
+                                handleOpenStockModal(item.productRef)
+                              }}
+                              className="block mt-1 text-[10px] font-bold text-[#073b70] hover:underline text-right w-full"
+                            >
+                              Restock →
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {lowStockItems.length > 8 && (
+                        <p className="text-center text-[11px] font-semibold text-[#31506c] pt-2">
+                          + {lowStockItems.length - 8} more sizes require restocking.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* TAB 2: PRODUCTS MANAGEMENT TAB */}
         {activeTab === 'products' && (
           <div className="mt-8 rounded-2xl border border-[#073b70]/10 bg-white p-6 sm:p-8 shadow-xs">
             {/* SEARCH & FILTERS */}
@@ -795,6 +1097,25 @@ const AdminDashboard = () => {
                     </option>
                   ))}
                 </select>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductForm({
+                      name: '',
+                      description: '',
+                      price: '',
+                      category: 'Women',
+                      image_url: '',
+                      is_available: true,
+                    })
+                    setShowAddModal(true)
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-[#073b70] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#052d56]"
+                >
+                  <PlusIcon />
+                  Add Product
+                </button>
               </div>
             </div>
 
@@ -929,7 +1250,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* CUSTOMER ORDERS MANAGEMENT TAB */}
+        {/* TAB 3: CUSTOMER ORDERS MANAGEMENT TAB */}
         {activeTab === 'orders' && (
           <div className="mt-8 rounded-2xl border border-[#073b70]/10 bg-white p-6 sm:p-8 shadow-xs">
             {/* SEARCH & STATUS FILTER BAR */}
