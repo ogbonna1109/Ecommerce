@@ -25,7 +25,7 @@ const trustItems = [
 
 const TrustSection = () => {
   return (
-    <section className="border-y border-[#073b70]/10 bg-white px-5 py-14 sm:px-8 lg:px-10">
+    <section className="border-y border-[#073b70]/10 bg-white px-4 py-10 sm:px-8 sm:py-14 lg:px-10">
       <div className="mx-auto grid max-w-7xl grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
 
         {trustItems.map((item, index) => (

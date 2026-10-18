@@ -23,7 +23,7 @@ const Stats = () => {
                 {stats.map((stat, index) => (
                     <div
                         key={stat.label}
-                        className={`flex items-center justify-center gap-4 px-6 py-8 text-center sm:py-10 ${index !== 0 ? 'border-t border-[#073b70]/10 sm:border-l sm:border-t-0' : ''
+                        className={`flex items-center justify-center gap-3 sm:gap-4 px-4 py-6 text-center sm:py-10 ${index !== 0 ? 'border-t border-[#073b70]/10 sm:border-l sm:border-t-0' : ''
                             }`}
                     >
                         <span className="font-serif text-3xl font-bold text-[#073b70] sm:text-4xl">

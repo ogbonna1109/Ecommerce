@@ -5,7 +5,6 @@ import FeaturedCollections from './FeaturedCollections/FeatureCollections.jsx'
 import NewArrivals from './NewArrivals/NewArrivals.jsx'
 import PromoBanner from './PromoBanner/PromoBanner.jsx'
 import TrustSection from './TrustSection/TrustSection.jsx'
-import Footer from '../../Components/Footer/Footer.jsx'
 
 const Home = () => {
   return (
@@ -16,8 +15,6 @@ const Home = () => {
       <NewArrivals />
       <PromoBanner />
       <TrustSection />
-      <Footer />
-
     </main>
   )
 }

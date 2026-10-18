@@ -36,21 +36,21 @@ const products = [
 
 const NewArrivals = () => {
   return (
-    <section className="bg-white px-5 py-20 sm:px-8 lg:px-10">
+    <section className="bg-white px-4 py-14 sm:px-8 sm:py-20 lg:px-10">
       <div className="mx-auto max-w-7xl">
 
         {/* Heading */}
-        <div className="mb-10 flex items-end justify-between gap-6">
+        <div className="mb-8 sm:mb-10 flex items-end justify-between gap-6">
           <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-[#073b70]/60">
+            <p className="mb-2 text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] text-[#073b70]/60">
               Just In
             </p>
 
-            <h2 className="font-serif text-4xl font-bold text-[#073b70] sm:text-5xl">
+            <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#073b70]">
               New Arrivals
             </h2>
 
-            <p className="mt-3 text-[#31506c]">
+            <p className="mt-2 sm:mt-3 text-sm sm:text-base text-[#31506c]">
               Freshly curated pieces waiting for a new story.
             </p>
           </div>

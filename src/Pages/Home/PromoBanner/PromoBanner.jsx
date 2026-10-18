@@ -3,17 +3,17 @@ import { NavLink } from 'react-router-dom'
 
 const PromoBanner = () => {
   return (
-    <section className="bg-[#f8f5ef] px-5 py-16 sm:px-8 lg:px-10">
-      <div className="mx-auto max-w-7xl overflow-hidden rounded-3xl bg-[#073b70]">
+    <section className="bg-[#f8f5ef] px-4 py-12 sm:px-8 sm:py-16 lg:px-10">
+      <div className="mx-auto max-w-7xl overflow-hidden rounded-2xl sm:rounded-3xl bg-[#073b70]">
         <div className="grid items-center lg:grid-cols-2">
 
           {/* Content */}
-          <div className="px-7 py-12 sm:px-12 sm:py-16 lg:px-16">
-            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-white/60">
+          <div className="px-6 py-10 sm:px-12 sm:py-16 lg:px-16">
+            <p className="mb-2 sm:mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] text-white/60">
               Our Philosophy
             </p>
 
-            <h2 className="font-serif text-4xl font-bold leading-tight text-white sm:text-5xl">
+            <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight text-white">
               Quality Finds.
               <br />
               <span className="font-normal italic">

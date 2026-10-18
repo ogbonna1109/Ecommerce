@@ -5,6 +5,7 @@
   --navy-dark: #052d56;
   --cream: #f8f5ef;
   --blue-light: #edf7ff;
+  --royal-blue: #1d68ff;
   --border: #d9e3ea;
 }
 
@@ -14,14 +15,35 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
   margin: 0;
   min-width: 320px;
+  max-width: 100vw;
+  overflow-x: hidden;
   background: var(--cream);
   color: var(--navy);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-serif,
+.font-playfair {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+}
+
+.font-sans,
+.font-jakarta {
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.font-script,
+.font-caveat {
+  font-family: "Caveat", cursive;
 }
 
 button,

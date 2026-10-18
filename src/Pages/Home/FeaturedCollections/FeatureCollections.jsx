@@ -26,20 +26,20 @@ const collections = [
 
 const FeaturedCollections = () => {
   return (
-    <section className="bg-[#f8f5ef] px-5 py-20 sm:px-8 lg:px-10">
+    <section className="bg-[#f8f5ef] px-4 py-14 sm:px-8 sm:py-20 lg:px-10">
       <div className="mx-auto max-w-7xl">
 
-        <div className="mb-10 flex items-end justify-between gap-6">
+        <div className="mb-8 sm:mb-10 flex items-end justify-between gap-6">
           <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-[#073b70]/60">
+            <p className="mb-2 text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] text-[#073b70]/60">
               Explore
             </p>
 
-            <h2 className="font-serif text-4xl font-bold text-[#073b70] sm:text-5xl">
+            <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#073b70]">
               Featured Collections
             </h2>
 
-            <p className="mt-3 max-w-lg text-[#31506c]">
+            <p className="mt-2 sm:mt-3 max-w-lg text-sm sm:text-base text-[#31506c]">
               Curated pieces for every kind of mood.
             </p>
           </div>

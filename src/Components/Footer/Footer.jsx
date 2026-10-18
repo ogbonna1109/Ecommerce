@@ -1,6 +1,5 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import logo from '../../assets/jovial_thrift_full.png'
 
 const Footer = () => {
   return (
@@ -10,14 +9,22 @@ const Footer = () => {
 
           {/* Brand */}
           <div className="lg:col-span-2">
-            <NavLink to="/" className="inline-block">
-              <div className="rounded-xl bg-[#f8f5ef] px-4 py-2">
-                <img
-                  src={logo}
-                  alt="Jovial Thrift Hub"
-                  className="h-14 w-auto object-contain"
-                />
-              </div>
+            <NavLink to="/" className="inline-flex flex-col items-start group select-none">
+              <svg className="w-6 h-4 text-white mb-1 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 16" fill="currentColor">
+                <path d="M2 13.5h20v2H2v-2zm1-2.5l2.5-7 4.5 4.5 4-7 4 7 4.5-4.5 2.5 7H3z" />
+                <circle cx="2" cy="3.5" r="1.3" />
+                <circle cx="12" cy="1.5" r="1.5" />
+                <circle cx="22" cy="3.5" r="1.3" />
+              </svg>
+              <span className="font-serif text-2xl font-bold tracking-tight text-white leading-none">
+                Jovias
+              </span>
+              <span className="text-[9px] font-semibold tracking-[0.34em] text-white/90 uppercase mt-0.5">
+                SHOWROOM
+              </span>
+              <span className="text-[8px] font-normal tracking-wide text-white/60 mt-0.5">
+                Modern Style. Timeless You.
+              </span>
             </NavLink>
 
             <p className="mt-6 max-w-md text-sm leading-7 text-white/70">
